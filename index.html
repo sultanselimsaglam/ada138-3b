@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BA Model Görüntüleyici</title>
+<!-- ba-model/1 genel 3B görüntüleyici (şablon). Model: aşağıdaki "model-veri" etiketine gömülür (gom.py) ya da dosya seç / sürükle-bırak ile yüklenir. -->
+<style>
+:root{--zemin:#eceef2;--gradyan:linear-gradient(180deg,#f7f8fa 0%,#e2e6eb 100%);--panel:#ffffffe8;--yazi:#1d2430;--soluk:#66707d;--cizgi:#d5d9df;--vurgu:#b5523b}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--zemin:#1b1f26;--gradyan:linear-gradient(180deg,#252a32 0%,#14171c 100%);--panel:#262b34ee;--yazi:#e6e9ee;--soluk:#9aa3ae;--cizgi:#3a414c;--vurgu:#f0a08c}}
+:root[data-theme="dark"]{--zemin:#1b1f26;--gradyan:linear-gradient(180deg,#252a32 0%,#14171c 100%);--panel:#262b34ee;--yazi:#e6e9ee;--soluk:#9aa3ae;--cizgi:#3a414c;--vurgu:#f0a08c}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--zemin);background-image:var(--gradyan);color:var(--yazi);font:13px/1.4 "Segoe UI",system-ui,sans-serif;overflow:hidden}
+#sahne{position:fixed;inset:0}
+#panel{position:fixed;top:10px;left:10px;width:270px;max-height:calc(100% - 20px);overflow:auto;background:var(--panel);border:1px solid var(--cizgi);border-radius:8px;padding:10px 12px;backdrop-filter:blur(4px)}
+#panel h1{font-size:15px;margin:0 0 2px}
+#panel .alt{color:var(--soluk);font-size:12px;margin-bottom:8px}
+#panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--soluk);margin:12px 0 4px;border-top:1px solid var(--cizgi);padding-top:8px}
+label.sat{display:flex;align-items:center;gap:6px;cursor:pointer;padding:1px 0}
+label.sat .say{margin-left:auto;color:var(--soluk);font-variant-numeric:tabular-nums}
+.turSat{display:grid;grid-template-columns:1fr 74px 34px;align-items:center;gap:6px}
+.turSat input[type=range]{width:74px;margin:0}
+.turSat .opDeg{color:var(--soluk);font-size:11px;text-align:right;font-variant-numeric:tabular-nums}
+.renk{width:12px;height:12px;border-radius:2px;border:1px solid #0003;flex:none}
+.dugmeler{display:flex;flex-wrap:wrap;gap:4px}
+button,select{font:inherit;color:var(--yazi);background:transparent;border:1px solid var(--cizgi);border-radius:5px;padding:3px 8px;cursor:pointer}
+button:hover{border-color:var(--soluk)}
+input[type=range]{width:100%}
+#kesitDeger{font-variant-numeric:tabular-nums;font-weight:600}
+#ipucu{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--cizgi);border-radius:6px;padding:6px 8px;display:none;font-size:12px;white-space:nowrap;box-shadow:0 2px 8px #0002}
+#ipucu b{font-size:13px}
+#secili{font-size:12px}
+#secili td{padding:1px 6px 1px 0;vertical-align:top}
+#secili td:first-child{color:var(--soluk)}
+#bos{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;color:var(--soluk);font-size:15px;pointer-events:none}
+details summary{cursor:pointer;color:var(--soluk)}
+details ul{margin:4px 0 0 16px;padding:0;font-size:12px}
+#gizle{position:fixed;top:10px;left:10px;display:none}
+button.aktif{background:#e07a5f;border-color:#e07a5f;color:#fff}
+#makasIpucu{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:none;background:#e07a5f;color:#fff;border-radius:6px;padding:6px 12px;font-weight:600;pointer-events:none;box-shadow:0 2px 8px #0003;z-index:5}
+@media (max-width:600px){#panel{width:calc(100% - 20px);max-height:45%}}
+</style>
+</head>
+<body>
+<div id="sahne"></div>
+<div id="bos">Model yok — bir <b>ba-model/1</b> JSON dosyasını buraya sürükleyin<br>ya da paneldeki "Dosya seç" ile açın.</div>
+<button id="gizle">☰ Panel</button>
+<div id="panel">
+  <div style="display:flex;align-items:start;gap:6px"><div style="flex:1"><h1 id="baslik">BA Model</h1><div class="alt" id="altbaslik"></div></div><button id="panelKapat" title="Paneli gizle">✕</button></div>
+  <div class="dugmeler"><button data-g="3b">3B</button><button data-g="ust">Üst</button><button data-g="on">Ön</button><button data-g="yan">Yan</button><button id="dosyaBtn">Dosya seç</button><button id="makasBtn" title="Makas: imleci modelde gezdir, düzlem yüzeye oturur; tıkla kes. Yine bas: kapat">✂ Makas</button><button id="temaBtn" title="Arka plan: otomatik / açık / koyu">◐ Otomatik</button></div>
+  <input type="file" id="dosya" accept=".json,application/json" hidden>
+  <h2>✂ Makas (kesit düzlemi)</h2>
+  <select id="kesitTip" hidden><option value="">Kapalı</option><option value="z">Yatay (kot)</option><option value="x">Düşey X</option><option value="y">Düşey Y</option><option value="yuzey">Yüzeyden (✂)</option></select>
+  <input type="checkbox" id="kesitTers" hidden><input type="range" id="kesitKay" min="0" max="100000" value="50000" hidden>
+  <div>Konum: <span id="kesitDeger">—</span> <span id="kesitAks" style="color:var(--soluk)"></span></div>
+  <div style="color:var(--soluk);font-size:11px">✂ Makas'a bas, imleci modelde gezdir: imlecin altındaki yüz küçük mavi kareyle gösterilir. Tıkla: o noktaya ✂ işareti konur. İşareti içeri sürükle: kes (Shift+sürükle de olur) · T: öbür taraf · Makas'a yine bas ya da Esc: kapat. Kesilen yüzler parlak renkli ve çapraz taralı.</div>
+  <h2>Eleman türleri <span style="text-transform:none;letter-spacing:0;float:right">opaklık</span></h2><div id="turler"></div>
+  <label class="sat"><input type="checkbox" id="aksGoster" checked> Akslar</label>
+  <label class="sat"><input type="checkbox" id="golge" checked> Gölge</label>
+  <h2>Katlar</h2><div id="katlar"></div>
+  <h2>Seçili eleman</h2><div id="secili" style="color:var(--soluk)">Üstüne gel: ad/kesit/kot · tıkla: sabitle</div>
+  <h2>Model</h2><div id="ozet"></div>
+  <details id="varsDet"><summary>Varsayımlar</summary><ul id="vars"></ul></details>
+</div>
+<div id="ipucu"></div>
+<div id="makasIpucu">✂ İmleci gezdir, kesmek istediğin yüzeye tıkla · Esc: vazgeç</div>
+
+<script id="model-veri" type="application/json">{"sema":"ba-model/1","proje":{"ad":"SBG 138 ada 24 parsel ikiz villa","kod":"SBG-138-24","birim":"m","koordinat":"X=0 aks A (A->G), Y=0 aks 6 (6->1), kot ±0.00=103.18","uretim":"26.11.2026 10:56","kaynak":"ada138_model.py","varyant":"KABUK3"},"akslar":[{"ad":"A","yon":"x","k":0.0},{"ad":"B","yon":"x","k":5.15},{"ad":"C","yon":"x","k":8.0},{"ad":"D","yon":"x","k":10.85},{"ad":"E","yon":"x","k":16.0},{"ad":"F","yon":"x","k":18.75},{"ad":"G","yon":"x","k":21.0},{"ad":"6","yon":"y","k":0.0},{"ad":"5","yon":"y","k":3.7},{"ad":"4","yon":"y","k":5.901},{"ad":"3","yon":"y","k":7.55},{"ad":"2","yon":"y","k":8.7},{"ad":"1","yon":"y","k":11.3}],"yardimci_akslar":[{"ad":"A'","yon":"x","k":-1.8},{"ad":"E'","yon":"x","k":17.8},{"ad":"5'","yon":"y","k":1.9},{"ad":"1'","yon":"y","k":13.1}],"katlar":[{"ad":"RADYE","alt":-4.2,"ust":-3.6},{"ad":"BODRUM","alt":-3.6,"ust":0.5},{"ad":"ZEMIN","alt":0.5,"ust":3.5},{"ad":"1.NORMAL","alt":3.5,"ust":6.5},{"ad":"2.NORMAL","alt":6.5,"ust":9.5}],"malzeme":{"beton":"C30/37 (varsayım)","celik":"B420C"},"elemanlar":[{"ad":"R01","tur":"radye","kat":"RADYE","kalinlik":0.6,"alt":-4.2,"ust":-3.6,"poligon":[[0.0,0.0],[18.75,0.0],[18.75,5.901],[21.0,5.901],[21.0,11.3],[0.0,11.3]],"bosluklar":[[[5.45,3.95],[7.25,3.95],[7.25,5.65],[5.45,5.65]],[[8.75,3.95],[10.55,3.95],[10.55,5.65],[8.75,5.65]]]},{"ad":"R02","tur":"radye","kat":"RADYE","kalinlik":0.6,"alt":-5.6,"ust":-5.0,"poligon":[[5.2,3.7],[7.5,3.7],[7.5,5.9],[5.2,5.9]],"bosluklar":[],"aciklama":"asansör çukuru tabanı"},{"ad":"PC11","tur":"perde","kat":"RADYE","kalinlik":0.25,"alt":-5.0,"ust":-4.2,"eksen":[[5.2,3.825],[7.5,3.825]],"poligon":[[5.2,3.7],[7.5,3.7],[7.5,3.95],[5.2,3.95]],"aciklama":"çukur duvarı (radye altı)"},{"ad":"PC12","tur":"perde","kat":"RADYE","kalinlik":0.25,"alt":-5.0,"ust":-4.2,"eksen":[[5.2,5.775],[7.5,5.775]],"poligon":[[5.2,5.65],[7.5,5.65],[7.5,5.9],[5.2,5.9]],"aciklama":"çukur duvarı (radye altı)"},{"ad":"PC13","tur":"perde","kat":"RADYE","kalinlik":0.25,"alt":-5.0,"ust":-4.2,"eksen":[[5.325,3.95],[5.325,5.65]],"poligon":[[5.2,3.95],[5.45,3.95],[5.45,5.65],[5.2,5.65]],"aciklama":"çukur duvarı (radye altı)"},{"ad":"PC14","tur":"perde","kat":"RADYE","kalinlik":0.25,"alt":-5.0,"ust":-4.2,"eksen":[[7.375,3.95],[7.375,5.65]],"poligon":[[7.25,3.95],[7.5,3.95],[7.5,5.65],[7.25,5.65]],"aciklama":"çukur duvarı (radye altı)"},{"ad":"R03","tur":"radye","kat":"RADYE","kalinlik":0.6,"alt":-5.6,"ust":-5.0,"poligon":[[8.5,3.7],[10.8,3.7],[10.8,5.9],[8.5,5.9]],"bosluklar":[],"aciklama":"asansör çukuru tabanı"},{"ad":"PC21","tur":"perde","kat":"RADYE","kalinlik":0.25,"alt":-5.0,"ust":-4.2,"eksen":[[8.5,3.825],[10.8,3.825]],"poligon":[[8.5,3.7],[10.8,3.7],[10.8,3.95],[8.5,3.95]],"aciklama":"çukur duvarı (radye altı)"},{"ad":"PC22","tur":"perde","kat":"RADYE","kalinlik":0.25,"alt":-5.0,"ust":-4.2,"eksen":[[8.5,5.775],[10.8,5.775]],"poligon":[[8.5,5.65],[10.8,5.65],[10.8,5.9],[8.5,5.9]],"aciklama":"çukur duvarı (radye altı)"},{"ad":"PC23","tur":"perde","kat":"RADYE","kalinlik":0.25,"alt":-5.0,"ust":-4.2,"eksen":[[8.625,3.95],[8.625,5.65]],"poligon":[[8.5,3.95],[8.75,3.95],[8.75,5.65],[8.5,5.65]],"aciklama":"çukur duvarı (radye altı)"},{"ad":"PC24","tur":"perde","kat":"RADYE","kalinlik":0.25,"alt":-5.0,"ust":-4.2,"eksen":[[10.675,3.95],[10.675,5.65]],"poligon":[[10.55,3.95],[10.8,3.95],[10.8,5.65],[10.55,5.65]],"aciklama":"çukur duvarı (radye altı)"},{"ad":"S101","tur":"kolon","kat":"BODRUM","kesit":"50/50","alt":-3.6,"ust":0.5,"poligon":[[0.0,10.8],[0.5,10.8],[0.5,11.3],[0.0,11.3]]},{"ad":"S102","tur":"kolon","kat":"BODRUM","kesit":"60/40","alt":-3.6,"ust":0.5,"poligon":[[5.798,10.9],[6.398,10.9],[6.398,11.3],[5.798,11.3]]},{"ad":"S104","tur":"kolon","kat":"BODRUM","kesit":"60/40","alt":-3.6,"ust":0.5,"poligon":[[9.6,10.9],[10.2,10.9],[10.2,11.3],[9.6,11.3]]},{"ad":"S105","tur":"kolon","kat":"BODRUM","kesit":"35/60","alt":-3.6,"ust":0.5,"poligon":[[15.65,10.7],[16.0,10.7],[16.0,11.3],[15.65,11.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,10.7],[15.8,11.3]],"pier":"KK-05","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S106","tur":"kolon","kat":"BODRUM","kesit":"60/25","alt":-3.6,"ust":-0.6,"poligon":[[20.4,11.05],[21.0,11.05],[21.0,11.3],[20.4,11.3]]},{"ad":"S107","tur":"kolon","kat":"BODRUM","kesit":"60/40","alt":-3.6,"ust":0.5,"poligon":[[5.15,8.4],[5.75,8.4],[5.75,8.8],[5.15,8.8]]},{"ad":"S108","tur":"kolon","kat":"BODRUM","kesit":"60/40","alt":-3.6,"ust":0.5,"poligon":[[10.25,8.4],[10.85,8.4],[10.85,8.8],[10.25,8.8]]},{"ad":"S109","tur":"kolon","kat":"BODRUM","kesit":"50/50","alt":-3.6,"ust":0.5,"poligon":[[0.0,7.3],[0.5,7.3],[0.5,7.8],[0.0,7.8]]},{"ad":"S110","tur":"kolon","kat":"BODRUM","kesit":"35/60","alt":-3.6,"ust":0.5,"poligon":[[15.65,7.25],[16.0,7.25],[16.0,7.85],[15.65,7.85]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,7.25],[15.8,7.85]],"pier":"KK-10","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S111","tur":"kolon","kat":"BODRUM","kesit":"35/60","alt":-3.6,"ust":0.5,"poligon":[[15.65,5.601],[16.0,5.601],[16.0,6.201],[15.65,6.201]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,5.601],[15.8,6.201]],"pier":"KK-E4","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S112","tur":"kolon","kat":"BODRUM","kesit":"25/50","alt":-3.6,"ust":-0.6,"poligon":[[18.5,5.651],[18.75,5.651],[18.75,6.151],[18.5,6.151]]},{"ad":"S113","tur":"kolon","kat":"BODRUM","kesit":"25/60","alt":-3.6,"ust":-0.6,"poligon":[[20.75,5.901],[21.0,5.901],[21.0,6.501],[20.75,6.501]]},{"ad":"S114","tur":"kolon","kat":"BODRUM","kesit":"50/50","alt":-3.6,"ust":0.5,"poligon":[[0.0,3.7],[0.5,3.7],[0.5,4.2],[0.0,4.2]]},{"ad":"S115","tur":"kolon","kat":"BODRUM","kesit":"35/60","alt":-3.6,"ust":0.5,"poligon":[[15.65,3.7],[16.0,3.7],[16.0,4.3],[15.65,4.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,3.7],[15.8,4.3]],"pier":"KK-15","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S116","tur":"kolon","kat":"BODRUM","kesit":"25/50","alt":-3.6,"ust":-0.6,"poligon":[[18.5,3.45],[18.75,3.45],[18.75,3.95],[18.5,3.95]]},{"ad":"S117","tur":"kolon","kat":"BODRUM","kesit":"60/25","alt":-3.6,"ust":-0.6,"poligon":[[0.0,0.0],[0.6,0.0],[0.6,0.25],[0.0,0.25]]},{"ad":"S118","tur":"kolon","kat":"BODRUM","kesit":"60/25","alt":-3.6,"ust":-0.6,"poligon":[[5.15,0.0],[5.75,0.0],[5.75,0.25],[5.15,0.25]]},{"ad":"S119","tur":"kolon","kat":"BODRUM","kesit":"60/25","alt":-3.6,"ust":-0.6,"poligon":[[10.25,0.0],[10.85,0.0],[10.85,0.25],[10.25,0.25]]},{"ad":"S120","tur":"kolon","kat":"BODRUM","kesit":"60/25","alt":-3.6,"ust":-0.6,"poligon":[[15.4,0.0],[16.0,0.0],[16.0,0.25],[15.4,0.25]]},{"ad":"S121","tur":"kolon","kat":"BODRUM","kesit":"25/50","alt":-3.6,"ust":-0.6,"poligon":[[18.5,0.0],[18.75,0.0],[18.75,0.5],[18.5,0.5]]},{"ad":"P126","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[0.5,11.175],[5.798,11.175]],"poligon":[[0.5,11.05],[5.798,11.05],[5.798,11.3],[0.5,11.3]],"acikliklar":[{"s1":0.0,"s2":2.1,"alt":-1.8,"ust":-0.8}]},{"ad":"P127","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[6.398,11.175],[7.85,11.175]],"poligon":[[6.398,11.05],[7.85,11.05],[7.85,11.3],[6.398,11.3]]},{"ad":"P128","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[8.15,11.175],[9.6,11.175]],"poligon":[[8.15,11.05],[9.6,11.05],[9.6,11.3],[8.15,11.3]]},{"ad":"P129","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[10.2,11.175],[15.5,11.175]],"poligon":[[10.2,11.05],[15.5,11.05],[15.5,11.3],[10.2,11.3]],"acikliklar":[{"s1":3.1,"s2":5.3,"alt":-1.8,"ust":-0.8}]},{"ad":"P130","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[16.0,11.175],[20.4,11.175]],"poligon":[[16.0,11.05],[20.4,11.05],[20.4,11.3],[16.0,11.3]]},{"ad":"P131","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[18.75,6.026],[20.75,6.026]],"poligon":[[18.75,5.901],[20.75,5.901],[20.75,6.151],[18.75,6.151]]},{"ad":"P132","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[0.6,0.125],[5.15,0.125]],"poligon":[[0.6,0.0],[5.15,0.0],[5.15,0.25],[0.6,0.25]]},{"ad":"P133","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[5.75,0.125],[10.25,0.125]],"poligon":[[5.75,0.0],[10.25,0.0],[10.25,0.25],[5.75,0.25]]},{"ad":"P134","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[10.85,0.125],[15.4,0.125]],"poligon":[[10.85,0.0],[15.4,0.0],[15.4,0.25],[10.85,0.25]]},{"ad":"P135","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[16.0,0.125],[18.5,0.125]],"poligon":[[16.0,0.0],[18.5,0.0],[18.5,0.25],[16.0,0.25]]},{"ad":"P136","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[0.125,0.25],[0.125,3.7]],"poligon":[[0.0,0.25],[0.25,0.25],[0.25,3.7],[0.0,3.7]]},{"ad":"P137","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[0.125,4.2],[0.125,7.3]],"poligon":[[0.0,4.2],[0.25,4.2],[0.25,7.3],[0.0,7.3]]},{"ad":"P138","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[0.125,7.8],[0.125,10.8]],"poligon":[[0.0,7.8],[0.25,7.8],[0.25,10.8],[0.0,10.8]]},{"ad":"P139","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[18.625,0.5],[18.625,3.45]],"poligon":[[18.5,0.5],[18.75,0.5],[18.75,3.45],[18.5,3.45]]},{"ad":"P140","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[18.625,3.95],[18.625,5.651]],"poligon":[[18.5,3.95],[18.75,3.95],[18.75,5.651],[18.5,5.651]]},{"ad":"P141","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[20.875,6.501],[20.875,11.05]],"poligon":[[20.75,6.501],[21.0,6.501],[21.0,11.05],[20.75,11.05]]},{"ad":"P150","tur":"perde","kat":"BODRUM","kalinlik":0.3,"alt":-3.6,"ust":0.5,"eksen":[[8.0,5.9],[8.0,11.3]],"poligon":[[7.85,5.9],[8.15,5.9],[8.15,11.3],[7.85,11.3]]},{"ad":"P151","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[5.15,5.775],[10.85,5.775]],"poligon":[[5.15,5.65],[10.85,5.65],[10.85,5.9],[5.15,5.9]]},{"ad":"P152","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[7.375,3.95],[7.375,5.65]],"poligon":[[7.25,3.95],[7.5,3.95],[7.5,5.65],[7.25,5.65]]},{"ad":"P153","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[8.625,3.95],[8.625,5.65]],"poligon":[[8.5,3.95],[8.75,3.95],[8.75,5.65],[8.5,5.65]]},{"ad":"P154","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[5.15,3.825],[7.5,3.825]],"poligon":[[5.15,3.7],[7.5,3.7],[7.5,3.95],[5.15,3.95]]},{"ad":"P155","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":0.5,"eksen":[[8.5,3.825],[10.85,3.825]],"poligon":[[8.5,3.7],[10.85,3.7],[10.85,3.95],[8.5,3.95]]},{"ad":"KR1-T","tur":"doseme","kat":"BODRUM","tip":"kuranglez tabanı","kalinlik":0.2,"alt":-2.2,"ust":-2.0,"poligon":[[0.3,11.3],[3.0,11.3],[3.0,12.45],[0.3,12.45]],"bosluklar":[]},{"ad":"KR1-1","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-2.0,"ust":0.15,"eksen":[[0.425,11.3],[0.425,12.45]],"poligon":[[0.3,11.3],[0.55,11.3],[0.55,12.45],[0.3,12.45]],"aciklama":"kuranglez duvarı","serbest_ust":true},{"ad":"KR1-2","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-2.0,"ust":0.15,"eksen":[[2.875,11.3],[2.875,12.45]],"poligon":[[2.75,11.3],[3.0,11.3],[3.0,12.45],[2.75,12.45]],"aciklama":"kuranglez duvarı","serbest_ust":true},{"ad":"KR1-3","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-2.0,"ust":0.15,"eksen":[[0.55,12.325],[2.75,12.325]],"poligon":[[0.55,12.2],[2.75,12.2],[2.75,12.45],[0.55,12.45]],"aciklama":"kuranglez duvarı","serbest_ust":true},{"ad":"KR2-T","tur":"doseme","kat":"BODRUM","tip":"kuranglez tabanı","kalinlik":0.2,"alt":-2.2,"ust":-2.0,"poligon":[[13.0,11.3],[16.0,11.3],[16.0,12.5],[13.0,12.5]],"bosluklar":[]},{"ad":"KR2-1","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-2.0,"ust":0.15,"eksen":[[13.125,11.3],[13.125,12.5]],"poligon":[[13.0,11.3],[13.25,11.3],[13.25,12.5],[13.0,12.5]],"aciklama":"kuranglez duvarı","serbest_ust":true},{"ad":"KR2-2","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-2.0,"ust":0.15,"eksen":[[15.875,11.3],[15.875,12.5]],"poligon":[[15.75,11.3],[16.0,11.3],[16.0,12.5],[15.75,12.5]],"aciklama":"kuranglez duvarı","serbest_ust":true},{"ad":"KR2-3","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-2.0,"ust":0.15,"eksen":[[13.25,12.375],[15.75,12.375]],"poligon":[[13.25,12.25],[15.75,12.25],[15.75,12.5],[13.25,12.5]],"aciklama":"kuranglez duvarı","serbest_ust":true},{"ad":"K101","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[5.75,8.55],[7.85,8.55]],"poligon":[[5.75,8.4],[7.85,8.4],[7.85,8.7],[5.75,8.7]]},{"ad":"K102","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[8.15,8.55],[10.25,8.55]],"poligon":[[8.15,8.4],[10.25,8.4],[10.25,8.7],[8.15,8.7]]},{"ad":"K103","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[15.5,7.5075],[10.85,8.546]],"poligon":[[10.85,8.392],[15.5,7.354],[15.5,7.661],[10.85,8.7]]},{"ad":"K104","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[5.15,8.5475],[0.5,7.509]],"poligon":[[0.5,7.355],[5.15,8.394],[5.15,8.701],[0.5,7.663]]},{"ad":"K105","tur":"kiris","kat":"BODRUM","kesit":"25/45","b":0.25,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[0.25,5.776],[5.15,5.776]],"poligon":[[0.25,5.651],[5.15,5.651],[5.15,5.901],[0.25,5.901]]},{"ad":"K106","tur":"kiris","kat":"BODRUM","kesit":"25/45","b":0.25,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[10.85,5.776],[15.6,5.776]],"poligon":[[10.85,5.651],[15.6,5.651],[15.6,5.901],[10.85,5.901]]},{"ad":"K107","tur":"kiris","kat":"BODRUM","kesit":"25/60","b":0.25,"h":0.6,"alt":-1.2,"ust":-0.6,"eksen":[[16.0,6.026],[18.5,6.026]],"poligon":[[16.0,5.901],[18.5,5.901],[18.5,6.151],[16.0,6.151]]},{"ad":"K108","tur":"kiris","kat":"BODRUM","kesit":"25/140","b":0.25,"h":1.4,"alt":-0.9,"ust":0.5,"eksen":[[0.5,3.825],[5.15,3.825]],"poligon":[[0.5,3.7],[5.15,3.7],[5.15,3.95],[0.5,3.95]],"analiz":"spandrel","analiz_alt":-0.6,"spandrel":"SP-K108","aciklama":"kot farkı kirişi: ETABS kabuk panel -0.60..+0.50 + spandrel (kiriş gibi tasarım)"},{"ad":"K109","tur":"kiris","kat":"BODRUM","kesit":"25/140","b":0.25,"h":1.4,"alt":-0.9,"ust":0.5,"eksen":[[7.5,3.825],[8.5,3.825]],"poligon":[[7.5,3.7],[8.5,3.7],[8.5,3.95],[7.5,3.95]],"analiz":"spandrel","analiz_alt":-0.6,"spandrel":"SP-K109","aciklama":"kot farkı kirişi: ETABS kabuk panel -0.60..+0.50 + spandrel (kiriş gibi tasarım)"},{"ad":"K110","tur":"kiris","kat":"BODRUM","kesit":"25/140","b":0.25,"h":1.4,"alt":-0.9,"ust":0.5,"eksen":[[10.85,3.825],[15.5,3.825]],"poligon":[[10.85,3.7],[15.5,3.7],[15.5,3.95],[10.85,3.95]],"analiz":"spandrel","analiz_alt":-0.6,"spandrel":"SP-K110","aciklama":"kot farkı kirişi: ETABS kabuk panel -0.60..+0.50 + spandrel (kiriş gibi tasarım)"},{"ad":"K111","tur":"kiris","kat":"BODRUM","kesit":"25/60","b":0.25,"h":0.6,"alt":-1.2,"ust":-0.6,"eksen":[[16.0,3.825],[18.5,3.825]],"poligon":[[16.0,3.7],[18.5,3.7],[18.5,3.95],[16.0,3.95]]},{"ad":"K112","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":-1.05,"ust":-0.6,"eksen":[[5.3,0.25],[5.3,3.7]],"poligon":[[5.15,0.25],[5.45,0.25],[5.45,3.7],[5.15,3.7]]},{"ad":"K113","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[5.3,3.95],[5.3,5.65]],"poligon":[[5.15,3.95],[5.45,3.95],[5.45,5.65],[5.15,5.65]]},{"ad":"K114","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[5.3,5.9],[5.3,8.4]],"poligon":[[5.15,5.9],[5.45,5.9],[5.45,8.4],[5.15,8.4]]},{"ad":"K115","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[5.328,8.8],[5.872,10.975]],"poligon":[[5.736,11.05],[5.173,8.8],[5.483,8.8],[6.008,10.9]]},{"ad":"K117","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[10.6675,8.8],[10.1235,10.975]],"poligon":[[9.988,10.9],[10.513,8.8],[10.822,8.8],[10.259,11.05]]},{"ad":"K118","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":-1.05,"ust":-0.6,"eksen":[[10.7,0.25],[10.7,3.7]],"poligon":[[10.55,0.25],[10.85,0.25],[10.85,3.7],[10.55,3.7]]},{"ad":"K119","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[10.7,3.95],[10.7,5.65]],"poligon":[[10.55,3.95],[10.85,3.95],[10.85,5.65],[10.55,5.65]]},{"ad":"K120","tur":"kiris","kat":"BODRUM","kesit":"30/45","b":0.3,"h":0.45,"alt":0.05,"ust":0.5,"eksen":[[10.7,5.9],[10.7,8.4]],"poligon":[[10.55,5.9],[10.85,5.9],[10.85,8.4],[10.55,8.4]]},{"ad":"K121","tur":"kiris","kat":"BODRUM","kesit":"40/120","b":0.4,"h":1.2,"alt":-1.8,"ust":-0.6,"eksen":[[15.8,0.25],[15.8,3.7]],"poligon":[[15.6,0.25],[16.0,0.25],[16.0,3.7],[15.6,3.7]]},{"ad":"K122","tur":"kiris","kat":"BODRUM","kesit":"40/140","b":0.4,"h":1.4,"alt":-0.9,"ust":0.5,"eksen":[[15.8,4.3],[15.8,5.601]],"poligon":[[15.6,4.3],[16.0,4.3],[16.0,5.601],[15.6,5.601]],"analiz":"spandrel","analiz_alt":-0.6,"spandrel":"SP-K122","aciklama":"kot farkı kirişi: ETABS kabuk panel -0.60..+0.50 + spandrel (kiriş gibi tasarım)"},{"ad":"K123","tur":"kiris","kat":"BODRUM","kesit":"40/140","b":0.4,"h":1.4,"alt":-0.9,"ust":0.5,"eksen":[[15.8,6.201],[15.8,7.25]],"poligon":[[15.6,6.201],[16.0,6.201],[16.0,7.25],[15.6,7.25]],"analiz":"spandrel","analiz_alt":-0.6,"spandrel":"SP-K123","aciklama":"kot farkı kirişi: ETABS kabuk panel -0.60..+0.50 + spandrel (kiriş gibi tasarım)"},{"ad":"K124","tur":"kiris","kat":"BODRUM","kesit":"40/140","b":0.4,"h":1.4,"alt":-0.9,"ust":0.5,"eksen":[[15.8,7.85],[15.8,10.7]],"poligon":[[15.6,7.85],[16.0,7.85],[16.0,10.7],[15.6,10.7]],"analiz":"spandrel","analiz_alt":-0.6,"spandrel":"SP-K124","aciklama":"kot farkı kirişi: ETABS kabuk panel -0.60..+0.50 + spandrel (kiriş gibi tasarım)"},{"ad":"K125","tur":"kiris","kat":"BODRUM","kesit":"25/60","b":0.25,"h":0.6,"alt":-1.2,"ust":-0.6,"eksen":[[18.625,6.151],[18.625,11.05]],"poligon":[[18.5,6.151],[18.75,6.151],[18.75,11.05],[18.5,11.05]]},{"ad":"D050","tur":"doseme","kat":"BODRUM","tip":"kirisli","kalinlik":0.15,"alt":0.35,"ust":0.5,"poligon":[[0.0,3.7],[16.0,3.7],[16.0,11.3],[0.0,11.3]],"bosluklar":[[[5.45,5.9],[7.85,5.9],[7.85,8.4],[5.45,8.4]],[[8.15,5.9],[10.55,5.9],[10.55,8.4],[8.15,8.4]],[[5.45,3.95],[7.25,3.95],[7.25,5.65],[5.45,5.65]],[[8.75,3.95],[10.55,3.95],[10.55,5.65],[8.75,5.65]],[[7.5,3.95],[8.5,3.95],[8.5,5.65],[7.5,5.65]]]},{"ad":"D-060","tur":"doseme","kat":"BODRUM","tip":"kirisli","kalinlik":0.25,"alt":-0.85,"ust":-0.6,"poligon":[[0.0,0.0],[18.75,0.0],[18.75,5.901],[21.0,5.901],[21.0,11.3],[15.6,11.3],[15.6,3.95],[0.0,3.95]],"bosluklar":[],"aciklama":"bitkili bahçe döşemesi, üstü ~60 cm toprak"},{"ad":"S201","tur":"kolon","kat":"ZEMIN","kesit":"35/60","alt":0.5,"ust":3.5,"poligon":[[0.0,10.7],[0.35,10.7],[0.35,11.3],[0.0,11.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[0.25,10.7],[0.25,11.3]],"pier":"KK-01","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=0.250"},{"ad":"S202","tur":"kolon","kat":"ZEMIN","kesit":"60/40","alt":0.5,"ust":3.5,"poligon":[[5.798,10.9],[6.398,10.9],[6.398,11.3],[5.798,11.3]]},{"ad":"S204","tur":"kolon","kat":"ZEMIN","kesit":"60/40","alt":0.5,"ust":3.5,"poligon":[[9.6,10.9],[10.2,10.9],[10.2,11.3],[9.6,11.3]]},{"ad":"S205","tur":"kolon","kat":"ZEMIN","kesit":"35/60","alt":0.5,"ust":3.5,"poligon":[[15.65,10.7],[16.0,10.7],[16.0,11.3],[15.65,11.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,10.7],[15.8,11.3]],"pier":"KK-05","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S207","tur":"kolon","kat":"ZEMIN","kesit":"60/40","alt":0.5,"ust":3.5,"poligon":[[5.15,8.4],[5.75,8.4],[5.75,8.8],[5.15,8.8]]},{"ad":"S208","tur":"kolon","kat":"ZEMIN","kesit":"60/40","alt":0.5,"ust":3.5,"poligon":[[10.25,8.4],[10.85,8.4],[10.85,8.8],[10.25,8.8]]},{"ad":"S209","tur":"kolon","kat":"ZEMIN","kesit":"35/60","alt":0.5,"ust":3.5,"poligon":[[0.0,7.25],[0.35,7.25],[0.35,7.85],[0.0,7.85]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[0.25,7.25],[0.25,7.85]],"pier":"KK-09","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=0.250"},{"ad":"S210","tur":"kolon","kat":"ZEMIN","kesit":"35/60","alt":0.5,"ust":3.5,"poligon":[[15.65,7.25],[16.0,7.25],[16.0,7.85],[15.65,7.85]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,7.25],[15.8,7.85]],"pier":"KK-10","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S214","tur":"kolon","kat":"ZEMIN","kesit":"35/60","alt":0.5,"ust":3.5,"poligon":[[0.0,3.7],[0.35,3.7],[0.35,4.3],[0.0,4.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[0.25,3.7],[0.25,4.3]],"pier":"KK-14","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=0.250"},{"ad":"S215","tur":"kolon","kat":"ZEMIN","kesit":"35/60","alt":0.5,"ust":3.5,"poligon":[[15.65,3.7],[16.0,3.7],[16.0,4.3],[15.65,4.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,3.7],[15.8,4.3]],"pier":"KK-15","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"P250","tur":"perde","kat":"ZEMIN","kalinlik":0.3,"alt":0.5,"ust":3.5,"eksen":[[8.0,5.9],[8.0,11.3]],"poligon":[[7.85,5.9],[8.15,5.9],[8.15,11.3],[7.85,11.3]]},{"ad":"P251","tur":"perde","kat":"ZEMIN","kalinlik":0.25,"alt":0.5,"ust":3.5,"eksen":[[5.15,5.775],[10.85,5.775]],"poligon":[[5.15,5.65],[10.85,5.65],[10.85,5.9],[5.15,5.9]]},{"ad":"P252","tur":"perde","kat":"ZEMIN","kalinlik":0.25,"alt":0.5,"ust":3.5,"eksen":[[7.375,3.95],[7.375,5.65]],"poligon":[[7.25,3.95],[7.5,3.95],[7.5,5.65],[7.25,5.65]]},{"ad":"P253","tur":"perde","kat":"ZEMIN","kalinlik":0.25,"alt":0.5,"ust":3.5,"eksen":[[8.625,3.95],[8.625,5.65]],"poligon":[[8.5,3.95],[8.75,3.95],[8.75,5.65],[8.5,5.65]]},{"ad":"P254","tur":"perde","kat":"ZEMIN","kalinlik":0.25,"alt":0.5,"ust":3.5,"eksen":[[5.15,3.825],[7.5,3.825]],"poligon":[[5.15,3.7],[7.5,3.7],[7.5,3.95],[5.15,3.95]]},{"ad":"P255","tur":"perde","kat":"ZEMIN","kalinlik":0.25,"alt":0.5,"ust":3.5,"eksen":[[8.5,3.825],[10.85,3.825]],"poligon":[[8.5,3.7],[10.85,3.7],[10.85,3.95],[8.5,3.95]]},{"ad":"K201","tur":"kiris","kat":"ZEMIN","kesit":"30/45","b":0.3,"h":0.45,"alt":3.05,"ust":3.5,"eksen":[[5.75,8.55],[7.85,8.55]],"poligon":[[5.75,8.4],[7.85,8.4],[7.85,8.7],[5.75,8.7]]},{"ad":"K202","tur":"kiris","kat":"ZEMIN","kesit":"30/45","b":0.3,"h":0.45,"alt":3.05,"ust":3.5,"eksen":[[8.15,8.55],[10.25,8.55]],"poligon":[[8.15,8.4],[10.25,8.4],[10.25,8.7],[8.15,8.7]]},{"ad":"K203","tur":"kiris","kat":"ZEMIN","kesit":"30/45","b":0.3,"h":0.45,"alt":3.05,"ust":3.5,"eksen":[[5.3,3.95],[5.3,5.65]],"poligon":[[5.15,3.95],[5.45,3.95],[5.45,5.65],[5.15,5.65]]},{"ad":"K204","tur":"kiris","kat":"ZEMIN","kesit":"30/45","b":0.3,"h":0.45,"alt":3.05,"ust":3.5,"eksen":[[5.3,5.9],[5.3,8.4]],"poligon":[[5.15,5.9],[5.45,5.9],[5.45,8.4],[5.15,8.4]]},{"ad":"K208","tur":"kiris","kat":"ZEMIN","kesit":"30/45","b":0.3,"h":0.45,"alt":3.05,"ust":3.5,"eksen":[[10.7,3.95],[10.7,5.65]],"poligon":[[10.55,3.95],[10.85,3.95],[10.85,5.65],[10.55,5.65]]},{"ad":"K209","tur":"kiris","kat":"ZEMIN","kesit":"30/45","b":0.3,"h":0.45,"alt":3.05,"ust":3.5,"eksen":[[10.7,5.9],[10.7,8.4]],"poligon":[[10.55,5.9],[10.85,5.9],[10.85,8.4],[10.55,8.4]]},{"ad":"D350","tur":"doseme","kat":"ZEMIN","tip":"kirissiz","kalinlik":0.25,"alt":3.25,"ust":3.5,"poligon":[[-1.8,1.9],[17.8,1.9],[17.8,13.1],[-1.8,13.1]],"bosluklar":[[[5.45,5.9],[7.85,5.9],[7.85,8.4],[5.45,8.4]],[[8.15,5.9],[10.55,5.9],[10.55,8.4],[8.15,8.4]],[[5.45,3.95],[7.25,3.95],[7.25,5.65],[5.45,5.65]],[[8.75,3.95],[10.55,3.95],[10.55,5.65],[8.75,5.65]],[[7.5,3.95],[8.5,3.95],[8.5,5.65],[7.5,5.65]],[[0.3,4.1],[0.6,4.1],[0.6,4.4],[0.3,4.4]],[[15.4,4.1],[15.7,4.1],[15.7,4.4],[15.4,4.4]]]},{"ad":"S301","tur":"kolon","kat":"1.NORMAL","kesit":"35/60","alt":3.5,"ust":6.5,"poligon":[[0.0,10.7],[0.35,10.7],[0.35,11.3],[0.0,11.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[0.25,10.7],[0.25,11.3]],"pier":"KK-01","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=0.250"},{"ad":"S302","tur":"kolon","kat":"1.NORMAL","kesit":"60/40","alt":3.5,"ust":6.5,"poligon":[[5.798,10.9],[6.398,10.9],[6.398,11.3],[5.798,11.3]]},{"ad":"S304","tur":"kolon","kat":"1.NORMAL","kesit":"60/40","alt":3.5,"ust":6.5,"poligon":[[9.6,10.9],[10.2,10.9],[10.2,11.3],[9.6,11.3]]},{"ad":"S305","tur":"kolon","kat":"1.NORMAL","kesit":"35/60","alt":3.5,"ust":6.5,"poligon":[[15.65,10.7],[16.0,10.7],[16.0,11.3],[15.65,11.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,10.7],[15.8,11.3]],"pier":"KK-05","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S307","tur":"kolon","kat":"1.NORMAL","kesit":"60/40","alt":3.5,"ust":6.5,"poligon":[[5.15,8.4],[5.75,8.4],[5.75,8.8],[5.15,8.8]]},{"ad":"S308","tur":"kolon","kat":"1.NORMAL","kesit":"60/40","alt":3.5,"ust":6.5,"poligon":[[10.25,8.4],[10.85,8.4],[10.85,8.8],[10.25,8.8]]},{"ad":"S309","tur":"kolon","kat":"1.NORMAL","kesit":"35/60","alt":3.5,"ust":6.5,"poligon":[[0.0,7.25],[0.35,7.25],[0.35,7.85],[0.0,7.85]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[0.25,7.25],[0.25,7.85]],"pier":"KK-09","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=0.250"},{"ad":"S310","tur":"kolon","kat":"1.NORMAL","kesit":"35/60","alt":3.5,"ust":6.5,"poligon":[[15.65,7.25],[16.0,7.25],[16.0,7.85],[15.65,7.85]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,7.25],[15.8,7.85]],"pier":"KK-10","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S314","tur":"kolon","kat":"1.NORMAL","kesit":"35/60","alt":3.5,"ust":6.5,"poligon":[[0.0,3.7],[0.35,3.7],[0.35,4.3],[0.0,4.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[0.25,3.7],[0.25,4.3]],"pier":"KK-14","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=0.250"},{"ad":"S315","tur":"kolon","kat":"1.NORMAL","kesit":"35/60","alt":3.5,"ust":6.5,"poligon":[[15.65,3.7],[16.0,3.7],[16.0,4.3],[15.65,4.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,3.7],[15.8,4.3]],"pier":"KK-15","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"P350","tur":"perde","kat":"1.NORMAL","kalinlik":0.3,"alt":3.5,"ust":6.5,"eksen":[[8.0,5.9],[8.0,11.3]],"poligon":[[7.85,5.9],[8.15,5.9],[8.15,11.3],[7.85,11.3]]},{"ad":"P351","tur":"perde","kat":"1.NORMAL","kalinlik":0.25,"alt":3.5,"ust":6.5,"eksen":[[5.15,5.775],[10.85,5.775]],"poligon":[[5.15,5.65],[10.85,5.65],[10.85,5.9],[5.15,5.9]]},{"ad":"P352","tur":"perde","kat":"1.NORMAL","kalinlik":0.25,"alt":3.5,"ust":6.5,"eksen":[[7.375,3.95],[7.375,5.65]],"poligon":[[7.25,3.95],[7.5,3.95],[7.5,5.65],[7.25,5.65]]},{"ad":"P353","tur":"perde","kat":"1.NORMAL","kalinlik":0.25,"alt":3.5,"ust":6.5,"eksen":[[8.625,3.95],[8.625,5.65]],"poligon":[[8.5,3.95],[8.75,3.95],[8.75,5.65],[8.5,5.65]]},{"ad":"P354","tur":"perde","kat":"1.NORMAL","kalinlik":0.25,"alt":3.5,"ust":6.5,"eksen":[[5.15,3.825],[7.5,3.825]],"poligon":[[5.15,3.7],[7.5,3.7],[7.5,3.95],[5.15,3.95]]},{"ad":"P355","tur":"perde","kat":"1.NORMAL","kalinlik":0.25,"alt":3.5,"ust":6.5,"eksen":[[8.5,3.825],[10.85,3.825]],"poligon":[[8.5,3.7],[10.85,3.7],[10.85,3.95],[8.5,3.95]]},{"ad":"K301","tur":"kiris","kat":"1.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":6.05,"ust":6.5,"eksen":[[5.75,8.55],[7.85,8.55]],"poligon":[[5.75,8.4],[7.85,8.4],[7.85,8.7],[5.75,8.7]]},{"ad":"K302","tur":"kiris","kat":"1.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":6.05,"ust":6.5,"eksen":[[8.15,8.55],[10.25,8.55]],"poligon":[[8.15,8.4],[10.25,8.4],[10.25,8.7],[8.15,8.7]]},{"ad":"K303","tur":"kiris","kat":"1.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":6.05,"ust":6.5,"eksen":[[5.3,3.95],[5.3,5.65]],"poligon":[[5.15,3.95],[5.45,3.95],[5.45,5.65],[5.15,5.65]]},{"ad":"K304","tur":"kiris","kat":"1.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":6.05,"ust":6.5,"eksen":[[5.3,5.9],[5.3,8.4]],"poligon":[[5.15,5.9],[5.45,5.9],[5.45,8.4],[5.15,8.4]]},{"ad":"K308","tur":"kiris","kat":"1.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":6.05,"ust":6.5,"eksen":[[10.7,3.95],[10.7,5.65]],"poligon":[[10.55,3.95],[10.85,3.95],[10.85,5.65],[10.55,5.65]]},{"ad":"K309","tur":"kiris","kat":"1.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":6.05,"ust":6.5,"eksen":[[10.7,5.9],[10.7,8.4]],"poligon":[[10.55,5.9],[10.85,5.9],[10.85,8.4],[10.55,8.4]]},{"ad":"D650","tur":"doseme","kat":"1.NORMAL","tip":"kirissiz","kalinlik":0.25,"alt":6.25,"ust":6.5,"poligon":[[-1.8,1.9],[17.8,1.9],[17.8,13.1],[-1.8,13.1]],"bosluklar":[[[5.45,5.9],[7.85,5.9],[7.85,8.4],[5.45,8.4]],[[8.15,5.9],[10.55,5.9],[10.55,8.4],[8.15,8.4]],[[5.45,3.95],[7.25,3.95],[7.25,5.65],[5.45,5.65]],[[8.75,3.95],[10.55,3.95],[10.55,5.65],[8.75,5.65]],[[7.5,3.95],[8.5,3.95],[8.5,5.65],[7.5,5.65]],[[0.3,4.1],[0.6,4.1],[0.6,4.4],[0.3,4.4]],[[15.4,4.1],[15.7,4.1],[15.7,4.4],[15.4,4.4]]]},{"ad":"S401","tur":"kolon","kat":"2.NORMAL","kesit":"35/60","alt":6.5,"ust":9.5,"poligon":[[0.0,10.7],[0.35,10.7],[0.35,11.3],[0.0,11.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[0.25,10.7],[0.25,11.3]],"pier":"KK-01","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=0.250"},{"ad":"S402","tur":"kolon","kat":"2.NORMAL","kesit":"60/40","alt":6.5,"ust":9.5,"poligon":[[5.798,10.9],[6.398,10.9],[6.398,11.3],[5.798,11.3]]},{"ad":"S404","tur":"kolon","kat":"2.NORMAL","kesit":"60/40","alt":6.5,"ust":9.5,"poligon":[[9.6,10.9],[10.2,10.9],[10.2,11.3],[9.6,11.3]]},{"ad":"S405","tur":"kolon","kat":"2.NORMAL","kesit":"35/60","alt":6.5,"ust":9.5,"poligon":[[15.65,10.7],[16.0,10.7],[16.0,11.3],[15.65,11.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,10.7],[15.8,11.3]],"pier":"KK-05","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S407","tur":"kolon","kat":"2.NORMAL","kesit":"60/40","alt":6.5,"ust":9.5,"poligon":[[5.15,8.4],[5.75,8.4],[5.75,8.8],[5.15,8.8]]},{"ad":"S408","tur":"kolon","kat":"2.NORMAL","kesit":"60/40","alt":6.5,"ust":9.5,"poligon":[[10.25,8.4],[10.85,8.4],[10.85,8.8],[10.25,8.8]]},{"ad":"S409","tur":"kolon","kat":"2.NORMAL","kesit":"35/60","alt":6.5,"ust":9.5,"poligon":[[0.0,7.25],[0.35,7.25],[0.35,7.85],[0.0,7.85]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[0.25,7.25],[0.25,7.85]],"pier":"KK-09","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=0.250"},{"ad":"S410","tur":"kolon","kat":"2.NORMAL","kesit":"35/60","alt":6.5,"ust":9.5,"poligon":[[15.65,7.25],[16.0,7.25],[16.0,7.85],[15.65,7.85]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,7.25],[15.8,7.85]],"pier":"KK-10","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"S414","tur":"kolon","kat":"2.NORMAL","kesit":"35/60","alt":6.5,"ust":9.5,"poligon":[[0.0,3.7],[0.35,3.7],[0.35,4.3],[0.0,4.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[0.25,3.7],[0.25,4.3]],"pier":"KK-14","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=0.250"},{"ad":"S415","tur":"kolon","kat":"2.NORMAL","kesit":"35/60","alt":6.5,"ust":9.5,"poligon":[[15.65,3.7],[16.0,3.7],[16.0,4.3],[15.65,4.3]],"analiz":"kabuk","analiz_kalinlik":0.35,"analiz_eksen":[[15.8,3.7],[15.8,4.3]],"pier":"KK-15","aciklama":"35x60 kabuk kolon (TBDY: kolon, lw/bw=1,7); ETABS ekseni perde hizasında x=15.800"},{"ad":"P450","tur":"perde","kat":"2.NORMAL","kalinlik":0.3,"alt":6.5,"ust":9.5,"eksen":[[8.0,5.9],[8.0,11.3]],"poligon":[[7.85,5.9],[8.15,5.9],[8.15,11.3],[7.85,11.3]]},{"ad":"P451","tur":"perde","kat":"2.NORMAL","kalinlik":0.25,"alt":6.5,"ust":9.5,"eksen":[[5.15,5.775],[10.85,5.775]],"poligon":[[5.15,5.65],[10.85,5.65],[10.85,5.9],[5.15,5.9]]},{"ad":"P452","tur":"perde","kat":"2.NORMAL","kalinlik":0.25,"alt":6.5,"ust":9.5,"eksen":[[7.375,3.95],[7.375,5.65]],"poligon":[[7.25,3.95],[7.5,3.95],[7.5,5.65],[7.25,5.65]]},{"ad":"P453","tur":"perde","kat":"2.NORMAL","kalinlik":0.25,"alt":6.5,"ust":9.5,"eksen":[[8.625,3.95],[8.625,5.65]],"poligon":[[8.5,3.95],[8.75,3.95],[8.75,5.65],[8.5,5.65]]},{"ad":"P454","tur":"perde","kat":"2.NORMAL","kalinlik":0.25,"alt":6.5,"ust":9.5,"eksen":[[5.15,3.825],[7.5,3.825]],"poligon":[[5.15,3.7],[7.5,3.7],[7.5,3.95],[5.15,3.95]]},{"ad":"P455","tur":"perde","kat":"2.NORMAL","kalinlik":0.25,"alt":6.5,"ust":9.5,"eksen":[[8.5,3.825],[10.85,3.825]],"poligon":[[8.5,3.7],[10.85,3.7],[10.85,3.95],[8.5,3.95]]},{"ad":"K401","tur":"kiris","kat":"2.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":9.05,"ust":9.5,"eksen":[[5.75,8.55],[7.85,8.55]],"poligon":[[5.75,8.4],[7.85,8.4],[7.85,8.7],[5.75,8.7]]},{"ad":"K402","tur":"kiris","kat":"2.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":9.05,"ust":9.5,"eksen":[[8.15,8.55],[10.25,8.55]],"poligon":[[8.15,8.4],[10.25,8.4],[10.25,8.7],[8.15,8.7]]},{"ad":"K403","tur":"kiris","kat":"2.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":9.05,"ust":9.5,"eksen":[[5.3,3.95],[5.3,5.65]],"poligon":[[5.15,3.95],[5.45,3.95],[5.45,5.65],[5.15,5.65]]},{"ad":"K404","tur":"kiris","kat":"2.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":9.05,"ust":9.5,"eksen":[[5.3,5.9],[5.3,8.4]],"poligon":[[5.15,5.9],[5.45,5.9],[5.45,8.4],[5.15,8.4]]},{"ad":"K408","tur":"kiris","kat":"2.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":9.05,"ust":9.5,"eksen":[[10.7,3.95],[10.7,5.65]],"poligon":[[10.55,3.95],[10.85,3.95],[10.85,5.65],[10.55,5.65]]},{"ad":"K409","tur":"kiris","kat":"2.NORMAL","kesit":"30/45","b":0.3,"h":0.45,"alt":9.05,"ust":9.5,"eksen":[[10.7,5.9],[10.7,8.4]],"poligon":[[10.55,5.9],[10.85,5.9],[10.85,8.4],[10.55,8.4]]},{"ad":"D950","tur":"doseme","kat":"2.NORMAL","tip":"kirissiz","kalinlik":0.25,"alt":9.25,"ust":9.5,"poligon":[[-1.8,1.9],[17.8,1.9],[17.8,13.1],[-1.8,13.1]],"bosluklar":[[[5.45,5.9],[7.85,5.9],[7.85,8.4],[5.45,8.4]],[[8.15,5.9],[10.55,5.9],[10.55,8.4],[8.15,8.4]],[[5.45,3.95],[7.25,3.95],[7.25,5.65],[5.45,5.65]],[[8.75,3.95],[10.55,3.95],[10.55,5.65],[8.75,5.65]],[[7.5,3.95],[8.5,3.95],[8.5,5.65],[7.5,5.65]],[[0.3,4.1],[0.6,4.1],[0.6,4.4],[0.3,4.4]],[[15.4,4.1],[15.7,4.1],[15.7,4.4],[15.4,4.4]]],"yuk_bolgeleri":[{"ad":"TERAS","poligon":[[-1.8,1.9],[0.94,1.9],[0.94,13.1],[-1.8,13.1]]},{"ad":"TERAS","poligon":[[15.06,1.9],[17.8,1.9],[17.8,13.1],[15.06,13.1]]}]},{"ad":"P2A1","tur":"perde","kat":"ZEMIN","kalinlik":0.2,"alt":0.5,"ust":3.5,"eksen":[[6.398,11.2],[9.6,11.2]],"poligon":[[6.398,11.1],[9.6,11.1],[9.6,11.3],[6.398,11.3]],"aciklama":"aks 1 boşluklu perde (banyo pencereleri)","acikliklar":[{"s1":0.202,"s2":0.852,"alt":1.7,"ust":2.7},{"s1":2.352,"s2":3.002,"alt":1.7,"ust":2.7}]},{"ad":"P3A1","tur":"perde","kat":"1.NORMAL","kalinlik":0.2,"alt":3.5,"ust":6.5,"eksen":[[6.398,11.2],[9.6,11.2]],"poligon":[[6.398,11.1],[9.6,11.1],[9.6,11.3],[6.398,11.3]],"aciklama":"aks 1 boşluklu perde (banyo pencereleri)","acikliklar":[{"s1":0.247,"s2":0.847,"alt":4.7,"ust":5.7},{"s1":2.347,"s2":2.947,"alt":4.7,"ust":5.7}]},{"ad":"P4A1","tur":"perde","kat":"2.NORMAL","kalinlik":0.2,"alt":6.5,"ust":9.5,"eksen":[[6.398,11.2],[9.6,11.2]],"poligon":[[6.398,11.1],[9.6,11.1],[9.6,11.3],[6.398,11.3]],"aciklama":"aks 1 boşluklu perde (banyo pencereleri)","acikliklar":[{"s1":0.247,"s2":0.847,"alt":7.7,"ust":8.7},{"s1":2.347,"s2":2.947,"alt":7.7,"ust":8.7}]},{"ad":"M1-01B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":0.35,"ust":0.676,"poligon":[[5.47,5.9],[5.72,5.9],[5.72,6.95],[5.47,6.95]],"aciklama":"merdiven ZEMIN → üst kat, basamak 1/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-01A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":0.35,"ust":0.676,"poligon":[[10.53,6.95],[10.28,6.95],[10.28,5.9],[10.53,5.9]],"aciklama":"merdiven ZEMIN → üst kat, basamak 1/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-02B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":0.526,"ust":0.853,"poligon":[[5.72,5.9],[5.97,5.9],[5.97,6.95],[5.72,6.95]],"aciklama":"merdiven ZEMIN → üst kat, basamak 2/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-02A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":0.526,"ust":0.853,"poligon":[[10.28,6.95],[10.03,6.95],[10.03,5.9],[10.28,5.9]],"aciklama":"merdiven ZEMIN → üst kat, basamak 2/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-03B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":0.703,"ust":1.029,"poligon":[[5.97,5.9],[6.22,5.9],[6.22,6.95],[5.97,6.95]],"aciklama":"merdiven ZEMIN → üst kat, basamak 3/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-03A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":0.703,"ust":1.029,"poligon":[[10.03,6.95],[9.78,6.95],[9.78,5.9],[10.03,5.9]],"aciklama":"merdiven ZEMIN → üst kat, basamak 3/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-04B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":0.879,"ust":1.206,"poligon":[[6.22,5.9],[6.56,5.9],[6.45,6.95],[6.22,6.95]],"aciklama":"merdiven ZEMIN → üst kat, basamak 4/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-04A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":0.879,"ust":1.206,"poligon":[[9.78,6.95],[9.55,6.95],[9.44,5.9],[9.78,5.9]],"aciklama":"merdiven ZEMIN → üst kat, basamak 4/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-05B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.056,"ust":1.382,"poligon":[[6.56,5.9],[7.03,5.9],[6.6,6.95],[6.45,6.95]],"aciklama":"merdiven ZEMIN → üst kat, basamak 5/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-05A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.056,"ust":1.382,"poligon":[[9.55,6.95],[9.4,6.95],[8.97,5.9],[9.44,5.9]],"aciklama":"merdiven ZEMIN → üst kat, basamak 5/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-06B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.232,"ust":1.559,"poligon":[[7.03,5.9],[7.72,5.9],[6.76,6.95],[6.6,6.95]],"aciklama":"merdiven ZEMIN → üst kat, basamak 6/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-06A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.232,"ust":1.559,"poligon":[[9.4,6.95],[9.24,6.95],[8.28,5.9],[8.97,5.9]],"aciklama":"merdiven ZEMIN → üst kat, basamak 6/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-07B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.409,"ust":1.735,"poligon":[[7.72,5.9],[7.85,5.9],[7.85,6.57],[6.8,7.07],[6.76,6.95]],"aciklama":"merdiven ZEMIN → üst kat, basamak 7/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-07A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.409,"ust":1.735,"poligon":[[9.24,6.95],[9.2,7.07],[8.15,6.57],[8.15,5.9],[8.28,5.9]],"aciklama":"merdiven ZEMIN → üst kat, basamak 7/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-08B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.585,"ust":1.912,"poligon":[[7.85,6.57],[7.85,7.17],[6.8,7.17],[6.8,7.07]],"aciklama":"merdiven ZEMIN → üst kat, basamak 8/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-08A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.585,"ust":1.912,"poligon":[[9.2,7.07],[9.2,7.17],[8.15,7.17],[8.15,6.57]],"aciklama":"merdiven ZEMIN → üst kat, basamak 8/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-09B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.762,"ust":2.088,"poligon":[[7.85,7.17],[7.85,7.77],[6.8,7.27],[6.8,7.17]],"aciklama":"merdiven ZEMIN → üst kat, basamak 9/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-09A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.762,"ust":2.088,"poligon":[[9.2,7.17],[9.2,7.27],[8.15,7.77],[8.15,7.17]],"aciklama":"merdiven ZEMIN → üst kat, basamak 9/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-10B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.938,"ust":2.265,"poligon":[[7.85,7.77],[7.85,8.4],[7.66,8.4],[6.71,7.35],[6.8,7.27]],"aciklama":"merdiven ZEMIN → üst kat, basamak 10/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-10A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":1.938,"ust":2.265,"poligon":[[9.2,7.27],[9.29,7.35],[8.34,8.4],[8.15,8.4],[8.15,7.77]],"aciklama":"merdiven ZEMIN → üst kat, basamak 10/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-11B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.115,"ust":2.441,"poligon":[[7.66,8.4],[7.0,8.4],[6.56,7.35],[6.71,7.35]],"aciklama":"merdiven ZEMIN → üst kat, basamak 11/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-11A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.115,"ust":2.441,"poligon":[[9.29,7.35],[9.44,7.35],[9.0,8.4],[8.34,8.4]],"aciklama":"merdiven ZEMIN → üst kat, basamak 11/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-12B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.291,"ust":2.618,"poligon":[[7.0,8.4],[6.52,8.4],[6.41,7.35],[6.56,7.35]],"aciklama":"merdiven ZEMIN → üst kat, basamak 12/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-12A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.291,"ust":2.618,"poligon":[[9.44,7.35],[9.59,7.35],[9.48,8.4],[9.0,8.4]],"aciklama":"merdiven ZEMIN → üst kat, basamak 12/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-13B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.468,"ust":2.794,"poligon":[[6.52,8.4],[6.2,8.4],[6.2,7.35],[6.41,7.35]],"aciklama":"merdiven ZEMIN → üst kat, basamak 13/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-13A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.468,"ust":2.794,"poligon":[[9.59,7.35],[9.8,7.35],[9.8,8.4],[9.48,8.4]],"aciklama":"merdiven ZEMIN → üst kat, basamak 13/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-14B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.644,"ust":2.971,"poligon":[[6.2,8.4],[5.95,8.4],[5.95,7.35],[6.2,7.35]],"aciklama":"merdiven ZEMIN → üst kat, basamak 14/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-14A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.644,"ust":2.971,"poligon":[[9.8,7.35],[10.05,7.35],[10.05,8.4],[9.8,8.4]],"aciklama":"merdiven ZEMIN → üst kat, basamak 14/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-15B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.821,"ust":3.147,"poligon":[[5.95,8.4],[5.7,8.4],[5.7,7.35],[5.95,7.35]],"aciklama":"merdiven ZEMIN → üst kat, basamak 15/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-15A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.821,"ust":3.147,"poligon":[[10.05,7.35],[10.3,7.35],[10.3,8.4],[10.05,8.4]],"aciklama":"merdiven ZEMIN → üst kat, basamak 15/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-16B","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.997,"ust":3.324,"poligon":[[5.7,8.4],[5.45,8.4],[5.45,7.35],[5.7,7.35]],"aciklama":"merdiven ZEMIN → üst kat, basamak 16/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M1-16A","tur":"merdiven","kat":"ZEMIN","tip":"basamak","alt":2.997,"ust":3.324,"poligon":[[10.3,7.35],[10.55,7.35],[10.55,8.4],[10.3,8.4]],"aciklama":"merdiven ZEMIN → üst kat, basamak 16/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-01B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":3.35,"ust":3.676,"poligon":[[5.47,5.9],[5.72,5.9],[5.72,6.95],[5.47,6.95]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 1/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-01A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":3.35,"ust":3.676,"poligon":[[10.53,6.95],[10.28,6.95],[10.28,5.9],[10.53,5.9]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 1/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-02B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":3.526,"ust":3.853,"poligon":[[5.72,5.9],[5.97,5.9],[5.97,6.95],[5.72,6.95]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 2/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-02A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":3.526,"ust":3.853,"poligon":[[10.28,6.95],[10.03,6.95],[10.03,5.9],[10.28,5.9]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 2/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-03B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":3.703,"ust":4.029,"poligon":[[5.97,5.9],[6.22,5.9],[6.22,6.95],[5.97,6.95]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 3/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-03A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":3.703,"ust":4.029,"poligon":[[10.03,6.95],[9.78,6.95],[9.78,5.9],[10.03,5.9]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 3/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-04B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":3.879,"ust":4.206,"poligon":[[6.22,5.9],[6.56,5.9],[6.45,6.95],[6.22,6.95]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 4/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-04A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":3.879,"ust":4.206,"poligon":[[9.78,6.95],[9.55,6.95],[9.44,5.9],[9.78,5.9]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 4/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-05B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.056,"ust":4.382,"poligon":[[6.56,5.9],[7.03,5.9],[6.6,6.95],[6.45,6.95]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 5/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-05A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.056,"ust":4.382,"poligon":[[9.55,6.95],[9.4,6.95],[8.97,5.9],[9.44,5.9]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 5/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-06B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.232,"ust":4.559,"poligon":[[7.03,5.9],[7.72,5.9],[6.76,6.95],[6.6,6.95]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 6/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-06A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.232,"ust":4.559,"poligon":[[9.4,6.95],[9.24,6.95],[8.28,5.9],[8.97,5.9]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 6/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-07B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.409,"ust":4.735,"poligon":[[7.72,5.9],[7.85,5.9],[7.85,6.57],[6.8,7.07],[6.76,6.95]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 7/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-07A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.409,"ust":4.735,"poligon":[[9.24,6.95],[9.2,7.07],[8.15,6.57],[8.15,5.9],[8.28,5.9]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 7/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-08B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.585,"ust":4.912,"poligon":[[7.85,6.57],[7.85,7.17],[6.8,7.17],[6.8,7.07]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 8/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-08A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.585,"ust":4.912,"poligon":[[9.2,7.07],[9.2,7.17],[8.15,7.17],[8.15,6.57]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 8/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-09B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.762,"ust":5.088,"poligon":[[7.85,7.17],[7.85,7.77],[6.8,7.27],[6.8,7.17]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 9/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-09A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.762,"ust":5.088,"poligon":[[9.2,7.17],[9.2,7.27],[8.15,7.77],[8.15,7.17]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 9/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-10B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.938,"ust":5.265,"poligon":[[7.85,7.77],[7.85,8.4],[7.66,8.4],[6.71,7.35],[6.8,7.27]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 10/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-10A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":4.938,"ust":5.265,"poligon":[[9.2,7.27],[9.29,7.35],[8.34,8.4],[8.15,8.4],[8.15,7.77]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 10/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-11B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.115,"ust":5.441,"poligon":[[7.66,8.4],[7.0,8.4],[6.56,7.35],[6.71,7.35]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 11/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-11A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.115,"ust":5.441,"poligon":[[9.29,7.35],[9.44,7.35],[9.0,8.4],[8.34,8.4]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 11/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-12B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.291,"ust":5.618,"poligon":[[7.0,8.4],[6.52,8.4],[6.41,7.35],[6.56,7.35]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 12/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-12A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.291,"ust":5.618,"poligon":[[9.44,7.35],[9.59,7.35],[9.48,8.4],[9.0,8.4]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 12/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-13B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.468,"ust":5.794,"poligon":[[6.52,8.4],[6.2,8.4],[6.2,7.35],[6.41,7.35]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 13/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-13A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.468,"ust":5.794,"poligon":[[9.59,7.35],[9.8,7.35],[9.8,8.4],[9.48,8.4]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 13/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-14B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.644,"ust":5.971,"poligon":[[6.2,8.4],[5.95,8.4],[5.95,7.35],[6.2,7.35]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 14/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-14A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.644,"ust":5.971,"poligon":[[9.8,7.35],[10.05,7.35],[10.05,8.4],[9.8,8.4]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 14/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-15B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.821,"ust":6.147,"poligon":[[5.95,8.4],[5.7,8.4],[5.7,7.35],[5.95,7.35]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 15/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-15A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.821,"ust":6.147,"poligon":[[10.05,7.35],[10.3,7.35],[10.3,8.4],[10.05,8.4]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 15/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-16B","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.997,"ust":6.324,"poligon":[[5.7,8.4],[5.45,8.4],[5.45,7.35],[5.7,7.35]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 16/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M2-16A","tur":"merdiven","kat":"1.NORMAL","tip":"basamak","alt":5.997,"ust":6.324,"poligon":[[10.3,7.35],[10.55,7.35],[10.55,8.4],[10.3,8.4]],"aciklama":"merdiven 1.NORMAL → üst kat, basamak 16/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-01B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":6.35,"ust":6.676,"poligon":[[5.47,5.9],[5.72,5.9],[5.72,6.95],[5.47,6.95]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 1/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-01A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":6.35,"ust":6.676,"poligon":[[10.53,6.95],[10.28,6.95],[10.28,5.9],[10.53,5.9]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 1/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-02B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":6.526,"ust":6.853,"poligon":[[5.72,5.9],[5.97,5.9],[5.97,6.95],[5.72,6.95]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 2/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-02A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":6.526,"ust":6.853,"poligon":[[10.28,6.95],[10.03,6.95],[10.03,5.9],[10.28,5.9]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 2/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-03B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":6.703,"ust":7.029,"poligon":[[5.97,5.9],[6.22,5.9],[6.22,6.95],[5.97,6.95]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 3/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-03A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":6.703,"ust":7.029,"poligon":[[10.03,6.95],[9.78,6.95],[9.78,5.9],[10.03,5.9]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 3/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-04B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":6.879,"ust":7.206,"poligon":[[6.22,5.9],[6.56,5.9],[6.45,6.95],[6.22,6.95]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 4/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-04A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":6.879,"ust":7.206,"poligon":[[9.78,6.95],[9.55,6.95],[9.44,5.9],[9.78,5.9]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 4/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-05B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.056,"ust":7.382,"poligon":[[6.56,5.9],[7.03,5.9],[6.6,6.95],[6.45,6.95]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 5/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-05A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.056,"ust":7.382,"poligon":[[9.55,6.95],[9.4,6.95],[8.97,5.9],[9.44,5.9]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 5/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-06B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.232,"ust":7.559,"poligon":[[7.03,5.9],[7.72,5.9],[6.76,6.95],[6.6,6.95]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 6/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-06A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.232,"ust":7.559,"poligon":[[9.4,6.95],[9.24,6.95],[8.28,5.9],[8.97,5.9]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 6/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-07B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.409,"ust":7.735,"poligon":[[7.72,5.9],[7.85,5.9],[7.85,6.57],[6.8,7.07],[6.76,6.95]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 7/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-07A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.409,"ust":7.735,"poligon":[[9.24,6.95],[9.2,7.07],[8.15,6.57],[8.15,5.9],[8.28,5.9]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 7/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-08B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.585,"ust":7.912,"poligon":[[7.85,6.57],[7.85,7.17],[6.8,7.17],[6.8,7.07]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 8/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-08A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.585,"ust":7.912,"poligon":[[9.2,7.07],[9.2,7.17],[8.15,7.17],[8.15,6.57]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 8/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-09B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.762,"ust":8.088,"poligon":[[7.85,7.17],[7.85,7.77],[6.8,7.27],[6.8,7.17]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 9/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-09A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.762,"ust":8.088,"poligon":[[9.2,7.17],[9.2,7.27],[8.15,7.77],[8.15,7.17]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 9/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-10B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.938,"ust":8.265,"poligon":[[7.85,7.77],[7.85,8.4],[7.66,8.4],[6.71,7.35],[6.8,7.27]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 10/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-10A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":7.938,"ust":8.265,"poligon":[[9.2,7.27],[9.29,7.35],[8.34,8.4],[8.15,8.4],[8.15,7.77]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 10/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-11B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.115,"ust":8.441,"poligon":[[7.66,8.4],[7.0,8.4],[6.56,7.35],[6.71,7.35]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 11/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-11A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.115,"ust":8.441,"poligon":[[9.29,7.35],[9.44,7.35],[9.0,8.4],[8.34,8.4]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 11/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-12B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.291,"ust":8.618,"poligon":[[7.0,8.4],[6.52,8.4],[6.41,7.35],[6.56,7.35]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 12/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-12A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.291,"ust":8.618,"poligon":[[9.44,7.35],[9.59,7.35],[9.48,8.4],[9.0,8.4]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 12/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-13B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.468,"ust":8.794,"poligon":[[6.52,8.4],[6.2,8.4],[6.2,7.35],[6.41,7.35]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 13/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-13A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.468,"ust":8.794,"poligon":[[9.59,7.35],[9.8,7.35],[9.8,8.4],[9.48,8.4]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 13/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-14B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.644,"ust":8.971,"poligon":[[6.2,8.4],[5.95,8.4],[5.95,7.35],[6.2,7.35]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 14/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-14A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.644,"ust":8.971,"poligon":[[9.8,7.35],[10.05,7.35],[10.05,8.4],[9.8,8.4]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 14/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-15B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.821,"ust":9.147,"poligon":[[5.95,8.4],[5.7,8.4],[5.7,7.35],[5.95,7.35]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 15/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-15A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.821,"ust":9.147,"poligon":[[10.05,7.35],[10.3,7.35],[10.3,8.4],[10.05,8.4]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 15/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-16B","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.997,"ust":9.324,"poligon":[[5.7,8.4],[5.45,8.4],[5.45,7.35],[5.7,7.35]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 16/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M3-16A","tur":"merdiven","kat":"2.NORMAL","tip":"basamak","alt":8.997,"ust":9.324,"poligon":[[10.3,7.35],[10.55,7.35],[10.55,8.4],[10.3,8.4]],"aciklama":"merdiven 2.NORMAL → üst kat, basamak 16/16, rıht 17.65 cm, bel 15 cm"},{"ad":"M0-01B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-3.326,"poligon":[[3.45,5.92],[4.45,5.92],[4.45,6.17],[3.45,6.17]],"aciklama":"bodrum alt kol basamak 1, radyeye oturur (dolgu beton)"},{"ad":"M0-01A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-3.326,"poligon":[[12.55,6.17],[11.55,6.17],[11.55,5.92],[12.55,5.92]],"aciklama":"bodrum alt kol basamak 1, radyeye oturur (dolgu beton)"},{"ad":"M0-02B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-3.152,"poligon":[[3.45,6.17],[4.45,6.17],[4.45,6.42],[3.45,6.42]],"aciklama":"bodrum alt kol basamak 2, radyeye oturur (dolgu beton)"},{"ad":"M0-02A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-3.152,"poligon":[[12.55,6.42],[11.55,6.42],[11.55,6.17],[12.55,6.17]],"aciklama":"bodrum alt kol basamak 2, radyeye oturur (dolgu beton)"},{"ad":"M0-03B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-2.978,"poligon":[[3.45,6.42],[4.45,6.42],[4.45,6.67],[3.45,6.67]],"aciklama":"bodrum alt kol basamak 3, radyeye oturur (dolgu beton)"},{"ad":"M0-03A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-2.978,"poligon":[[12.55,6.67],[11.55,6.67],[11.55,6.42],[12.55,6.42]],"aciklama":"bodrum alt kol basamak 3, radyeye oturur (dolgu beton)"},{"ad":"M0-04B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-2.804,"poligon":[[3.45,6.67],[4.45,6.67],[4.45,6.92],[3.45,6.92]],"aciklama":"bodrum alt kol basamak 4, radyeye oturur (dolgu beton)"},{"ad":"M0-04A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-2.804,"poligon":[[12.55,6.92],[11.55,6.92],[11.55,6.67],[12.55,6.67]],"aciklama":"bodrum alt kol basamak 4, radyeye oturur (dolgu beton)"},{"ad":"M0-05B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-2.63,"poligon":[[3.45,6.92],[4.45,6.92],[4.45,7.17],[3.45,7.17]],"aciklama":"bodrum alt kol basamak 5, radyeye oturur (dolgu beton)"},{"ad":"M0-05A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-3.6,"ust":-2.63,"poligon":[[12.55,7.17],[11.55,7.17],[11.55,6.92],[12.55,6.92]],"aciklama":"bodrum alt kol basamak 5, radyeye oturur (dolgu beton)"},{"ad":"M0-SHB","tur":"merdiven","kat":"BODRUM","tip":"sahanlık","alt":-3.6,"ust":-2.457,"poligon":[[3.45,7.17],[4.45,7.17],[4.45,5.9],[5.47,5.9],[5.47,7.67],[3.45,7.67]],"aciklama":"bodrum ara sahanlık (6. rıht üstü, mimari etiket −2.23); geometri VARSAYIM, radyeye oturur"},{"ad":"M0-SHA","tur":"merdiven","kat":"BODRUM","tip":"sahanlık","alt":-3.6,"ust":-2.457,"poligon":[[12.55,7.67],[10.53,7.67],[10.53,5.9],[11.55,5.9],[11.55,7.17],[12.55,7.17]],"aciklama":"bodrum ara sahanlık (6. rıht üstü, mimari etiket −2.23); geometri VARSAYIM, radyeye oturur"},{"ad":"M0-07B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-2.607,"ust":-2.283,"poligon":[[5.47,5.9],[5.72,5.9],[5.72,6.95],[5.47,6.95]],"aciklama":"bodrum ana kol basamak 7, rıht 17.39 cm"},{"ad":"M0-07A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-2.607,"ust":-2.283,"poligon":[[10.53,6.95],[10.28,6.95],[10.28,5.9],[10.53,5.9]],"aciklama":"bodrum ana kol basamak 7, rıht 17.39 cm"},{"ad":"M0-08B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-2.433,"ust":-2.109,"poligon":[[5.72,5.9],[5.97,5.9],[5.97,6.95],[5.72,6.95]],"aciklama":"bodrum ana kol basamak 8, rıht 17.39 cm"},{"ad":"M0-08A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-2.433,"ust":-2.109,"poligon":[[10.28,6.95],[10.03,6.95],[10.03,5.9],[10.28,5.9]],"aciklama":"bodrum ana kol basamak 8, rıht 17.39 cm"},{"ad":"M0-09B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-2.259,"ust":-1.935,"poligon":[[5.97,5.9],[6.22,5.9],[6.22,6.95],[5.97,6.95]],"aciklama":"bodrum ana kol basamak 9, rıht 17.39 cm"},{"ad":"M0-09A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-2.259,"ust":-1.935,"poligon":[[10.03,6.95],[9.78,6.95],[9.78,5.9],[10.03,5.9]],"aciklama":"bodrum ana kol basamak 9, rıht 17.39 cm"},{"ad":"M0-10B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-2.085,"ust":-1.761,"poligon":[[6.22,5.9],[6.56,5.9],[6.45,6.95],[6.22,6.95]],"aciklama":"bodrum ana kol basamak 10, rıht 17.39 cm"},{"ad":"M0-10A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-2.085,"ust":-1.761,"poligon":[[9.78,6.95],[9.55,6.95],[9.44,5.9],[9.78,5.9]],"aciklama":"bodrum ana kol basamak 10, rıht 17.39 cm"},{"ad":"M0-11B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.911,"ust":-1.587,"poligon":[[6.56,5.9],[7.03,5.9],[6.6,6.95],[6.45,6.95]],"aciklama":"bodrum ana kol basamak 11, rıht 17.39 cm"},{"ad":"M0-11A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.911,"ust":-1.587,"poligon":[[9.55,6.95],[9.4,6.95],[8.97,5.9],[9.44,5.9]],"aciklama":"bodrum ana kol basamak 11, rıht 17.39 cm"},{"ad":"M0-12B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.737,"ust":-1.413,"poligon":[[7.03,5.9],[7.72,5.9],[6.76,6.95],[6.6,6.95]],"aciklama":"bodrum ana kol basamak 12, rıht 17.39 cm"},{"ad":"M0-12A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.737,"ust":-1.413,"poligon":[[9.4,6.95],[9.24,6.95],[8.28,5.9],[8.97,5.9]],"aciklama":"bodrum ana kol basamak 12, rıht 17.39 cm"},{"ad":"M0-13B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.563,"ust":-1.239,"poligon":[[7.72,5.9],[7.85,5.9],[7.85,6.57],[6.8,7.07],[6.76,6.95]],"aciklama":"bodrum ana kol basamak 13, rıht 17.39 cm"},{"ad":"M0-13A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.563,"ust":-1.239,"poligon":[[9.24,6.95],[9.2,7.07],[8.15,6.57],[8.15,5.9],[8.28,5.9]],"aciklama":"bodrum ana kol basamak 13, rıht 17.39 cm"},{"ad":"M0-14B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.389,"ust":-1.065,"poligon":[[7.85,6.57],[7.85,7.17],[6.8,7.17],[6.8,7.07]],"aciklama":"bodrum ana kol basamak 14, rıht 17.39 cm"},{"ad":"M0-14A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.389,"ust":-1.065,"poligon":[[9.2,7.07],[9.2,7.17],[8.15,7.17],[8.15,6.57]],"aciklama":"bodrum ana kol basamak 14, rıht 17.39 cm"},{"ad":"M0-15B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.215,"ust":-0.891,"poligon":[[7.85,7.17],[7.85,7.77],[6.8,7.27],[6.8,7.17]],"aciklama":"bodrum ana kol basamak 15, rıht 17.39 cm"},{"ad":"M0-15A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.215,"ust":-0.891,"poligon":[[9.2,7.17],[9.2,7.27],[8.15,7.77],[8.15,7.17]],"aciklama":"bodrum ana kol basamak 15, rıht 17.39 cm"},{"ad":"M0-16B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.041,"ust":-0.717,"poligon":[[7.85,7.77],[7.85,8.4],[7.66,8.4],[6.71,7.35],[6.8,7.27]],"aciklama":"bodrum ana kol basamak 16, rıht 17.39 cm"},{"ad":"M0-16A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-1.041,"ust":-0.717,"poligon":[[9.2,7.27],[9.29,7.35],[8.34,8.4],[8.15,8.4],[8.15,7.77]],"aciklama":"bodrum ana kol basamak 16, rıht 17.39 cm"},{"ad":"M0-17B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.867,"ust":-0.543,"poligon":[[7.66,8.4],[7.0,8.4],[6.56,7.35],[6.71,7.35]],"aciklama":"bodrum ana kol basamak 17, rıht 17.39 cm"},{"ad":"M0-17A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.867,"ust":-0.543,"poligon":[[9.29,7.35],[9.44,7.35],[9.0,8.4],[8.34,8.4]],"aciklama":"bodrum ana kol basamak 17, rıht 17.39 cm"},{"ad":"M0-18B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.693,"ust":-0.37,"poligon":[[7.0,8.4],[6.52,8.4],[6.41,7.35],[6.56,7.35]],"aciklama":"bodrum ana kol basamak 18, rıht 17.39 cm"},{"ad":"M0-18A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.693,"ust":-0.37,"poligon":[[9.44,7.35],[9.59,7.35],[9.48,8.4],[9.0,8.4]],"aciklama":"bodrum ana kol basamak 18, rıht 17.39 cm"},{"ad":"M0-19B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.52,"ust":-0.196,"poligon":[[6.52,8.4],[6.2,8.4],[6.2,7.35],[6.41,7.35]],"aciklama":"bodrum ana kol basamak 19, rıht 17.39 cm"},{"ad":"M0-19A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.52,"ust":-0.196,"poligon":[[9.59,7.35],[9.8,7.35],[9.8,8.4],[9.48,8.4]],"aciklama":"bodrum ana kol basamak 19, rıht 17.39 cm"},{"ad":"M0-20B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.346,"ust":-0.022,"poligon":[[6.2,8.4],[5.95,8.4],[5.95,7.35],[6.2,7.35]],"aciklama":"bodrum ana kol basamak 20, rıht 17.39 cm"},{"ad":"M0-20A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.346,"ust":-0.022,"poligon":[[9.8,7.35],[10.05,7.35],[10.05,8.4],[9.8,8.4]],"aciklama":"bodrum ana kol basamak 20, rıht 17.39 cm"},{"ad":"M0-21B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.172,"ust":0.152,"poligon":[[5.95,8.4],[5.7,8.4],[5.7,7.35],[5.95,7.35]],"aciklama":"bodrum ana kol basamak 21, rıht 17.39 cm"},{"ad":"M0-21A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":-0.172,"ust":0.152,"poligon":[[10.05,7.35],[10.3,7.35],[10.3,8.4],[10.05,8.4]],"aciklama":"bodrum ana kol basamak 21, rıht 17.39 cm"},{"ad":"M0-22B","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":0.002,"ust":0.326,"poligon":[[5.7,8.4],[5.45,8.4],[5.45,7.35],[5.7,7.35]],"aciklama":"bodrum ana kol basamak 22, rıht 17.39 cm"},{"ad":"M0-22A","tur":"merdiven","kat":"BODRUM","tip":"basamak","alt":0.002,"ust":0.326,"poligon":[[10.3,7.35],[10.55,7.35],[10.55,8.4],[10.3,8.4]],"aciklama":"bodrum ana kol basamak 22, rıht 17.39 cm"},{"ad":"P142","tur":"perde","kat":"BODRUM","kalinlik":0.25,"alt":-3.6,"ust":-0.6,"eksen":[[15.875,4.3],[15.875,5.601]],"poligon":[[15.75,4.3],[16.0,4.3],[16.0,5.601],[15.75,5.601]],"analiz_eksen":[[15.8,4.3],[15.8,5.601]],"aciklama":"E aksı aks 4-5 bodrum perdesi 25 cm (dış yüz mimari duvar dış yüzü x=16.00); üstünde K122 spandrel"}],"varsayimlar":["VARYANT KABUK (kullanıcı 25.11): A/E kolonları 01/09/14 ve 05/10/15 zemin-1N-2N'de 35x60 (Y yönünde 60), ETABS'te kabuk + pier (KK-xx); TBDY'ye göre KOLON (lw/bw=1,7). Fiziksel yer A x 0-35, E x 1565-1600; ETABS ekseni perde hizası A x=0.25 / E x=15.80 (≤7,5 cm).","VARYANT KABUK: E aksı bodrum kolonları S105/S110/S115 (üstteki kabuklarla aynı y) ve S111 (y 560,1-620,1) 35x60 kabuk, radye üstü -3.60'a iner.","VARYANT KABUK: kot farkı kirişleri K108/K109/K110 (aks 5) ve K122/K123/K124 (aks E, kabuk kolonlar arası net) ETABS'te -0.60..+0.50 kabuk panel + spandrel; gerçek kiriş alt kotu -0.90 (30 cm bahçe döşemesi bölgesinde). K121 (40/120, E aksı 6-5) çubuk kaldı.","VARYANT KABUK: bahçe döşemesi aks 5'te y=3.95'e, aks E'de x=15.60'a uzatıldı (spandrel eksenine bağlansın diye).","VARYANT KABUK: P142 bodrum perdesi E aksı aks 4-5, 25 cm, -3.60..-0.60. Mimaride Z-BA YOK, yalnız 15 cm Z-DUV (x 15.85-16.00); kalınlık TBDY min (serbest kat yük./20 ≈ 19 cm, ≥15) ve bodrum perdeleriyle aynı 25 alındı — VARSAYIM.","VARYANT KABUK: A ve E kabuk kolonları A5/E5 şaftıyla (30x30) fiziksel olarak 5 cm bindiriyor; ETABS ekseni şaft dışında.","VARYANT KABUK3 (kalıp esası, kullanıcı 26.11): mimaride asansör kulesi yok; çatı arası (+9.50..+11.90) perde/kolon/kiriş/kapak kaldırıldı, asansör perdeleri +9.50 çatı döşemesinde biter. Kuyu üst boşluğu 2N durağı +6.50 -> +9.50 = 3.00 m (asansör firmasıyla teyit).","VARYANT KABUK3: kuranglez arkası bodrum perdesi pencereleri P126 x 0.50-2.60 (210) ve P129 x 13.30-15.50 (220), H=100; denizlik -1.80 VARSAYIM (kuranglez tabanı -2.00 + 20 cm), üst -0.80.","Merdivenler (26.11): mimari DXF basamak çizgilerinden (Z-IZ 1) U dönüşlü balansmanlı kol; her basamak ayrı blok, alt yüzü basamak üstü − rıht − 15 cm (bel 15 cm VARSAYIM, testere dişli alt yüz — gerçek plak eğik). Bodrum: 23 rıht, bitmiş döşeme −3.50 VARSAYIM; alt kol 1–6 + L sahanlık radyeye oturur (sahanlık geometrisi VARSAYIM; mimari ara sahanlık etiketi −2.23, modelde −2.46). Merdivenler ETABS'e aktarılmaz (yük olarak).","Aks 1 boşluklu perde (P2A1/P3A1/P4A1, 20 cm, S02–S04 arası): pencere genişlikleri mimari DXF; denizlik +1.20, pencere yüksekliği 1.00 (H niteliği) — denizlik VARSAYIM, görünüşle teyit.","Radye 60 cm, üst -3.60 (karar 1). Radye konturu bodrum perde dış yüzü; ampatman yok.","Asansör çukuru taban üstü -5.00, 60 cm; çukur duvarı 25 cm (VARSAYIM, asansör firmasıyla teyit).","Bahçe döşemesi üst -0.60, 25 cm kirişli; E-G bölgesi ve 5-6 şeridi (karar 2 önerisi). Bahçe tarafındaki bodrum perde/kolon üstü -0.60; parsel kenarı bahçe duvarı/parapet ayrıca belirlenecek (HOLD).","Kot farkı kirişleri (aks 5: K108-K110, aks E: K122-K124) h=140: üst +0.50, alt -0.90. Ön kalıpta K121-K124 40/120, K108-K110 25/45 idi.","Ön kalıptaki SAG-DOLGU taraması bahçe döşemesinin toprak yükü olarak yorumlandı; su deposu kuru depo (karar 3).","+0.50 döşemesi ön kalıptaki gibi kirişli 15 cm, çapraz kirişler (K103/K104/K115/K117) korundu (öneri: dik yapılması — karar bekliyor).","+0.50 döşemesine merdiven/asansör/şaft boşlukları eklendi (ön kalıpta yoktu; mimaride bodruma iniyor).","1N (S3xx) ve 2N (S4xx) kolonları zemin kat S2xx ile aynı yer ve kesit; +6.50 ve +9.50 kalıbı +3.50 ile aynı.","Çekirdek perdeleri: C aksı 30 cm, asansör perdeleri 25 cm; B/D yüzünde kiriş (K203/K208), perde yok.","A5/E5 şaftları 30x30 yalnız +3.50/+6.50/+9.50 (ön kalıp Z-EMSAL); kolon köşesiyle 10x30 cm çakışıyor.","Çıkma 180 cm dört yönde (ön kalıp 179.5-179.8 ölçüldü, 180 alındı).","Teras yük bölgesi +9.50, iki tarafta: X -1.80..0.94 ve 15.06..17.80 (mimari CT-A03/CT-B03 27.2 m², ±5 cm).","Kuranglez taban -2.00, 20 cm; duvar 25 cm, üst +0.15 (mimari 103.34 civarı)."]}</script>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+
+const TURLER = { // tür: [etiket, renk (pastel)]
+  kolon: ['Kolon', 0xdcb2a6], perde: ['Perde', 0xb6c9de], kiris: ['Kiriş', 0xb7d5c3],
+  doseme: ['Döşeme', 0xd9dde3], radye: ['Radye', 0xc9b99e], temel: ['Temel', 0xc9b99e], merdiven: ['Merdiven', 0xc7b8db]
+};
+const DIGER = ['Diğer', 0xbfc3c8];
+const OPAK_VARS = { doseme: 55, radye: 55 };   // başlangıç opaklığı (%), diğerleri 100
+// çakışan (aynı düzlemdeki) yüzlerde titremeyi önlemek için tür önceliği: küçük sayı önde görünür
+const ONCELIK = { kolon: 1, perde: 2, kiris: 3, merdiven: 3, doseme: 4, radye: 5, temel: 5 };
+// kesilen yüz (poşe) rengi: PARLAK, tür başına belirgin ton (kullanıcı 26.11: "kesilen yerleri parlatalım")
+const KESIT_PARLAK = { kolon: 0xff4d2e, perde: 0x1f6fff, kiris: 0x12b85a, doseme: 0xff9f1a, radye: 0xd9822b, temel: 0xd9822b, merdiven: 0x9b4dff };
+// kesilen yüz taraması: mimari kesitteki gibi 45° çapraz çizgi (ANSI31 benzeri), parlak zemin üstüne koyu çizgi
+function taramaDokusu(boyut) {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, 64, 64); g.strokeStyle = 'rgba(0,0,0,0.55)'; g.lineWidth = 5;
+  for (const k of [-64, -32, 0, 32, 64, 96]) { g.beginPath(); g.moveTo(k, 64); g.lineTo(k + 64, 0); g.stroke(); }
+  const d = new THREE.CanvasTexture(c); d.wrapS = d.wrapT = THREE.RepeatWrapping; d.colorSpace = THREE.SRGBColorSpace;
+  const tekrar = boyut / 0.30; d.repeat.set(tekrar, tekrar); d.anisotropy = 8; return d;   // çizgi aralığı ~15 cm
+}
+const kesitRengi = (r, t) => new THREE.Color(KESIT_PARLAK[t] ?? new THREE.Color(r).offsetHSL(0, 0.5, 0.1).getHex());
+const $ = id => document.getElementById(id);
+const kot = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(2);
+const cm = v => Math.round(v * 100);
+
+// ---------- sahne ----------
+const sahne = new THREE.Scene();
+const kamera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.05, 2000);
+kamera.up.set(0, 0, 1);
+const ciz = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true });
+ciz.setPixelRatio(Math.min(devicePixelRatio, 2));
+ciz.setSize(innerWidth, innerHeight);
+ciz.localClippingEnabled = true;                      // makas: malzeme başına kesme (gölge de kesilir)
+ciz.shadowMap.enabled = true; ciz.shadowMap.type = THREE.PCFSoftShadowMap;
+$('sahne').appendChild(ciz.domElement);
+const kontrol = new OrbitControls(kamera, ciz.domElement);
+kontrol.enableDamping = true;
+// ışık: güçlü gök ışığı + orta şiddette güneş -> gölgeler kısmi (yarı ton), siyah değil
+sahne.add(new THREE.HemisphereLight(0xffffff, 0xd0d4da, 2.8));
+const gunes = new THREE.DirectionalLight(0xfff8f0, 1.0); sahne.add(gunes); sahne.add(gunes.target);
+gunes.castShadow = true;
+gunes.shadow.mapSize.set(4096, 4096);
+gunes.shadow.bias = -0.0004; gunes.shadow.normalBias = 0.03; gunes.shadow.radius = 3;
+const GUNES_YON = new THREE.Vector3(0.55, -0.85, 1.25).normalize();
+const zeminGolge = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShadowMaterial({ opacity: 0.13 }));
+zeminGolge.receiveShadow = true; sahne.add(zeminGolge);
+
+let kok = null, model = null, kutu = null, elemanlar = [], aksGrup = null, sabit = null, uzerinde = null, kesitAcik = false, KENAR_MAT = null;
+const duzlem = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1e6);   // kapalıyken hiçbir şeyi kesmez
+const KAPAKLAR = [];                                                 // tür başına kesit kapağı (stencil)
+// makas tutamağı + çerçeve
+const TURUNCU = 0xe07a5f;
+const CERCEVE_MAT = new LineMaterial({ color: TURUNCU, linewidth: 3, depthTest: false, transparent: true });
+CERCEVE_MAT.resolution.set(innerWidth, innerHeight);
+const cerceve = new LineSegments2(new LineSegmentsGeometry(), CERCEVE_MAT); cerceve.frustumCulled = false;
+cerceve.renderOrder = 90; cerceve.visible = false; sahne.add(cerceve);
+// kesit kenarı: düzlemin elemanları kestiği yerin dış hattı, siyah kalın (kapakların üstünde)
+const KESIK_MAT = new LineMaterial({ color: 0x000000, linewidth: 3.5 });
+KESIK_MAT.resolution.set(innerWidth, innerHeight);
+const kesikKenar = new LineSegments2(new LineSegmentsGeometry(), KESIK_MAT);
+kesikKenar.renderOrder = 2000; kesikKenar.visible = false; kesikKenar.raycast = () => {}; kesikKenar.frustumCulled = false; sahne.add(kesikKenar);
+function kesikKenarGuncelle() {
+  const n = [];
+  if (kesitAcik) {
+    const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), ofs = duzlem.normal.clone().multiplyScalar(-0.004);
+    const kes = (p, q, dp, dq) => p.clone().lerp(q, dp / (dp - dq)).add(ofs);
+    for (const m of elemanlar) {
+      if (!m.visible) continue;
+      const g = m.geometry; if (!g.boundingSphere) g.computeBoundingSphere();
+      if (Math.abs(duzlem.distanceToPoint(g.boundingSphere.center)) > g.boundingSphere.radius) continue;
+      const pa = g.attributes.position, ix = g.index, say = ix ? ix.count : pa.count;
+      for (let i = 0; i < say; i += 3) {
+        const i0 = ix ? ix.getX(i) : i, i1 = ix ? ix.getX(i + 1) : i + 1, i2 = ix ? ix.getX(i + 2) : i + 2;
+        A.fromBufferAttribute(pa, i0); B.fromBufferAttribute(pa, i1); C.fromBufferAttribute(pa, i2);
+        const da = duzlem.distanceToPoint(A), db = duzlem.distanceToPoint(B), dc = duzlem.distanceToPoint(C);
+        const P = [];
+        if ((da > 0) !== (db > 0)) P.push(kes(A, B, da, db));
+        if ((db > 0) !== (dc > 0)) P.push(kes(B, C, db, dc));
+        if ((dc > 0) !== (da > 0)) P.push(kes(C, A, dc, da));
+        if (P.length === 2) n.push(P[0].x, P[0].y, P[0].z, P[1].x, P[1].y, P[1].z);
+      }
+    }
+  }
+  kesikKenar.geometry.dispose(); kesikKenar.geometry = new LineSegmentsGeometry();
+  if (n.length) kesikKenar.geometry.setPositions(n);
+  kesikKenar.visible = n.length > 0;
+}
+const KAY = 100000;                                   // gizli kaydırıcı çözünürlüğü (15 m'de 0,15 mm)
+// makas işareti: seçilen noktada ✂ rozeti; sürüklenince düzlem normali boyunca kayar
+function makasDokusu() {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#e07a5f'; g.beginPath(); g.arc(64, 64, 60, 0, Math.PI * 2); g.fill();
+  g.lineWidth = 6; g.strokeStyle = '#fff'; g.stroke();
+  g.fillStyle = '#fff'; g.font = 'bold 76px "Segoe UI Symbol", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✂', 64, 68);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const tutamak = new THREE.Sprite(new THREE.SpriteMaterial({ map: makasDokusu(), depthTest: false, transparent: true }));
+tutamak.renderOrder = 92; tutamak.visible = false; sahne.add(tutamak);
+const makasOk = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(), 1, TURUNCU, 0.35, 0.22);
+makasOk.traverse(o => { if (o.material) { o.material.depthTest = false; o.material.transparent = true; } o.renderOrder = 91; }); makasOk.visible = false; sahne.add(makasOk);
+let makasNokta = null;                               // tıklanan nokta (işaret bu noktanın düzlemdeki izdüşümünde durur)
+
+const onizleme = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x00d5ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
+const ONIZ_MAT = new LineMaterial({ color: 0x0090b0, linewidth: 3, depthTest: false, transparent: true }); ONIZ_MAT.resolution.set(innerWidth, innerHeight);
+{ const k = 0.5; const kenar = new LineSegments2(new LineSegmentsGeometry().setPositions([-k, -k, 0, k, -k, 0, k, -k, 0, k, k, 0, k, k, 0, -k, k, 0, -k, k, 0, -k, -k, 0]), ONIZ_MAT); kenar.renderOrder = 96; kenar.frustumCulled = false; onizleme.add(kenar); }
+onizleme.renderOrder = 95; onizleme.visible = false; onizleme.raycast = () => {}; sahne.add(onizleme);
+function temizle() {
+  if (!kok) return;
+  kok.traverse(o => { o.geometry?.dispose(); if (o.material) [].concat(o.material).forEach(m => { m.map?.dispose(); m.dispose(); }); });
+  sahne.remove(kok); kok = null; elemanlar = []; KAPAKLAR.length = 0;
+}
+
+// stencil kesit kapağı malzemeleri (three.js webgl_clipping_stencil yöntemi)
+const STENCIL_TABAN = { depthWrite: false, depthTest: false, colorWrite: false, stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, clippingPlanes: [duzlem] };
+const stArka = new THREE.MeshBasicMaterial({ ...STENCIL_TABAN, side: THREE.BackSide, stencilFail: THREE.IncrementWrapStencilOp, stencilZFail: THREE.IncrementWrapStencilOp, stencilZPass: THREE.IncrementWrapStencilOp });
+const stOn = new THREE.MeshBasicMaterial({ ...STENCIL_TABAN, side: THREE.FrontSide, stencilFail: THREE.DecrementWrapStencilOp, stencilZFail: THREE.DecrementWrapStencilOp, stencilZPass: THREE.DecrementWrapStencilOp });
+
+function sekil(pol, bosluk) {
+  const s = new THREE.Shape(pol.map(p => new THREE.Vector2(p[0], p[1])));
+  for (const h of bosluk || []) s.holes.push(new THREE.Path(h.map(p => new THREE.Vector2(p[0], p[1]))));
+  return s;
+}
+
+function etiketSprite(metin, boy) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff'; g.strokeStyle = '#333'; g.lineWidth = 6;
+  g.beginPath(); g.arc(64, 64, 56, 0, 7); g.fill(); g.stroke();
+  g.fillStyle = '#222'; g.font = 'bold 56px Segoe UI, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(metin, 64, 68);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false }));
+  sp.scale.set(boy, boy, 1); sp.renderOrder = 10; return sp;
+}
+
+// boşluklu perde (ba-model/1 eki "acikliklar": s1/s2 eksen[0]'dan m, alt/ust kot): dolu parçalara böl
+function parcalar(e) {
+  if (!(e.acikliklar?.length && e.eksen && e.kalinlik)) return [[e.poligon, e.alt, e.ust, e.bosluklar]];
+  const [a, b] = e.eksen, L = Math.hypot(b[0] - a[0], b[1] - a[1]), u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], nv = [-u[1], u[0]];
+  const pr = (p, v) => (p[0] - a[0]) * v[0] + (p[1] - a[1]) * v[1];
+  const ss = e.poligon.map(p => pr(p, u)), ns = e.poligon.map(p => pr(p, nv));
+  const s0 = Math.min(...ss), s1 = Math.max(...ss), n0 = Math.min(...ns), n1 = Math.max(...ns);
+  const tek = v => [...new Set(v.map(x => +x.toFixed(4)))].sort((p, q) => p - q);
+  const S = tek([s0, s1, ...e.acikliklar.flatMap(o => [o.s1, o.s2])]).filter(v => v >= s0 - 1e-6 && v <= s1 + 1e-6);
+  const Z = tek([e.alt, e.ust, ...e.acikliklar.flatMap(o => [o.alt, o.ust])]).filter(v => v >= e.alt - 1e-6 && v <= e.ust + 1e-6);
+  const P = (s, n) => [a[0] + u[0] * s + nv[0] * n, a[1] + u[1] * s + nv[1] * n];
+  const out = [];
+  for (let i = 0; i < S.length - 1; i++) {
+    const sm = (S[i] + S[i + 1]) / 2; let z0 = null;
+    for (let j = 0; j < Z.length - 1; j++) {
+      const zm = (Z[j] + Z[j + 1]) / 2, bos = e.acikliklar.some(o => o.s1 < sm && sm < o.s2 && o.alt < zm && zm < o.ust);
+      if (!bos && z0 === null) z0 = Z[j];
+      if ((bos || j === Z.length - 2) && z0 !== null) { out.push([[P(S[i], n0), P(S[i + 1], n0), P(S[i + 1], n1), P(S[i], n1)], z0, bos ? Z[j] : Z[j + 1], []]); z0 = null; }
+    }
+  }
+  return out;
+}
+
+function kesitMetni(e) {
+  if (e.kesit) return e.kesit + (/\d$/.test(e.kesit) ? ' cm' : '');
+  if (e.b != null && e.h != null) return cm(e.b) + '/' + cm(e.h) + ' cm';
+  if (e.kalinlik != null) return 't = ' + cm(e.kalinlik) + ' cm';
+  return '—';
+}
+
+function yukle(m) {
+  temizle(); model = m;
+  if (m.sema && m.sema !== 'ba-model/1') console.warn('Beklenmeyen şema:', m.sema);
+  kok = new THREE.Group(); sahne.add(kok);
+  const sayac = {}, katSay = {};
+  kutu = new THREE.Box3();
+  const turSira = [...Object.keys(TURLER), '_'];
+  // kalın siyah kenar çizgileri (WebGL'de normal çizgi hep 1 px; LineMaterial piksel cinsinden kalınlık verir)
+  const kenarMat = new LineMaterial({ color: 0x111111, linewidth: 1.6, transparent: true, opacity: 0.85, clippingPlanes: [duzlem] });
+  kenarMat.resolution.set(innerWidth, innerHeight); KENAR_MAT = kenarMat;
+  // saydam döşemeler: kota göre SABİT çizim sırası (kamera dönerken sıralama değişip titremesin)
+  const yatayKot = [...new Set((m.elemanlar || []).filter(e => e.tur === 'doseme' || e.tur === 'radye').map(e => +e.ust))].sort((a, b) => a - b);
+  for (const e of m.elemanlar || []) {
+    if (!e.poligon || e.poligon.length < 3 || e.ust == null || e.alt == null) continue;
+    const [et, renk] = TURLER[e.tur] || DIGER;
+    const yatay = e.tur === 'doseme' || e.tur === 'radye';
+    const k = ONCELIK[e.tur] || 6;
+    const mat = new THREE.MeshLambertMaterial({
+      color: renk, side: THREE.DoubleSide, shadowSide: THREE.BackSide, transparent: yatay, opacity: yatay ? 0.55 : 1, depthWrite: !yatay,
+      polygonOffset: true, polygonOffsetFactor: k, polygonOffsetUnits: 2 * k,   // aynı düzlemdeki yüzler: öncelikli tür önde, kenar çizgileri üstte
+      clippingPlanes: [duzlem], clipShadows: true
+    });
+    const ti = turSira.indexOf(TURLER[e.tur] ? e.tur : '_');
+    for (const [pol, za, zu, bos] of parcalar(e)) {
+      const g = new THREE.ExtrudeGeometry(sekil(pol, bos), { depth: zu - za, bevelEnabled: false });
+      g.translate(0, 0, za);
+      const mesh = new THREE.Mesh(g, mat);
+      mesh.userData = e; mesh.renderOrder = yatay ? 2 + yatayKot.indexOf(+e.ust) : 1;
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      const kg = new LineSegmentsGeometry().fromEdgesGeometry(new THREE.EdgesGeometry(g, 25));
+      const kenar = new LineSegments2(kg, kenarMat); kenar.raycast = () => {}; mesh.add(kenar);
+      // kesit kapağı için stencil geçişleri (görünürlüğü elemanla birlikte açılır/kapanır)
+      for (const sm of [stArka, stOn]) { const s = new THREE.Mesh(g, sm); s.renderOrder = 1000 + 3 * ti; s.raycast = () => {}; mesh.add(s); }
+      kok.add(mesh); elemanlar.push(mesh);
+      g.computeBoundingBox(); kutu.union(g.boundingBox);
+    }
+    sayac[e.tur] = (sayac[e.tur] || 0) + 1;
+    katSay[e.kat ?? '—'] = (katSay[e.kat ?? '—'] || 0) + 1;
+  }
+  aksCiz(m);
+  // kesit kapakları: tür başına düz PARLAK renkli düzlem; yalnız stencil'in sıfır olmadığı yerde (eleman içi) boyanır
+  const boyut = kutu.getSize(new THREE.Vector3()).length() * 2;
+  for (const t of Object.keys(sayac)) {
+    const ti = turSira.indexOf(TURLER[t] ? t : '_');
+    const kp = new THREE.Mesh(new THREE.PlaneGeometry(boyut, boyut), new THREE.MeshBasicMaterial({
+      color: kesitRengi((TURLER[t] || DIGER)[1], t), map: taramaDokusu(boyut), side: THREE.DoubleSide,
+      stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc,
+      stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp
+    }));
+    kp.renderOrder = 1001 + 3 * ti; kp.userData.tur = t; kp.visible = false;
+    kp.onAfterRender = r => r.clearStencil();
+    kok.add(kp); KAPAKLAR.push(kp);
+  }
+  // gölge kamerası modele oturt, zemin gölge düzlemi
+  const mk = kutu.getCenter(new THREE.Vector3()), R = kutu.getSize(new THREE.Vector3()).length() / 2;
+  gunes.target.position.copy(mk); gunes.position.copy(mk).addScaledVector(GUNES_YON, R * 2.5);
+  Object.assign(gunes.shadow.camera, { left: -R, right: R, top: R, bottom: -R, near: R * 0.5, far: R * 4.5 });
+  gunes.shadow.camera.updateProjectionMatrix();
+  zeminGolge.scale.set(R * 6, R * 6, 1); zeminGolge.position.set(mk.x, mk.y, kutu.min.z - 0.01);
+  // panel
+  $('baslik').textContent = m.proje?.ad || m.proje || 'BA Model';
+  $('altbaslik').textContent = [m.sema, m.proje?.tarih, m.proje?.birim ? 'birim: ' + m.proje.birim : 'birim: m'].filter(Boolean).join(' · ');
+  document.title = ($('baslik').textContent + ' — 3B').slice(0, 60);
+  $('turler').innerHTML = Object.keys(sayac).map(t => {
+    const [et, r] = TURLER[t] || DIGER;
+    const op = OPAK_VARS[t] ?? 100;
+    return `<div class="turSat"><label class="sat"><input type="checkbox" data-tur="${t}" checked><span class="renk" style="background:#${r.toString(16).padStart(6, '0')}"></span>${et}<span class="say">${sayac[t]}</span></label>`
+      + `<input type="range" data-op="${t}" min="0" max="100" step="5" value="${op}" title="${et} opaklığı"><span class="opDeg" id="opd_${t}">%${op}</span></div>`;
+  }).join('');
+  const katSira = (m.katlar || []).map(k => k.ad).filter(k => katSay[k]);
+  for (const k of Object.keys(katSay)) if (!katSira.includes(k)) katSira.push(k);
+  $('katlar').innerHTML = katSira.reverse().map(k => {
+    const kk = (m.katlar || []).find(x => x.ad === k);
+    return `<label class="sat"><input type="checkbox" data-kat="${k}" checked>${k}${kk ? ` <span style="color:var(--soluk)">${kot(kk.alt)} → ${kot(kk.ust)}</span>` : ''}<span class="say">${katSay[k]}</span></label>`;
+  }).join('');
+  const V = (m.elemanlar || []).reduce((a, e) => a + (alan(e.poligon) - (e.bosluklar || []).reduce((s, h) => s + alan(h), 0)) * (e.ust - e.alt) - (e.acikliklar || []).reduce((s, o) => s + (o.s2 - o.s1) * (o.ust - o.alt) * (e.kalinlik || 0), 0), 0);
+  $('ozet').innerHTML = `${(m.elemanlar || []).length} eleman · kaba beton ≈ ${V.toFixed(1)} m³<br>kot aralığı ${kot(kutu.min.z)} … ${kot(kutu.max.z)}`;
+  const vs = m.varsayimlar || [];
+  $('vars').innerHTML = vs.map(v => `<li>${typeof v === 'string' ? v : JSON.stringify(v)}</li>`).join('');
+  $('varsDet').style.display = vs.length ? '' : 'none';
+  $('bos').style.display = 'none';
+  document.querySelectorAll('#turler input[type=checkbox],#katlar input').forEach(i => i.onchange = gorunurluk);
+  document.querySelectorAll('#turler input[type=range]').forEach(i => i.oninput = gorunurluk);
+  kesitAyarla(); bak('3b'); gorunurluk();
+}
+const alan = p => { let a = 0; for (let i = 0; i < p.length; i++) { const [x1, y1] = p[i], [x2, y2] = p[(i + 1) % p.length]; a += x1 * y2 - x2 * y1; } return Math.abs(a) / 2; };
+
+function aksCiz(m) {
+  aksGrup = new THREE.Group(); kok.add(aksGrup);
+  const z = kutu.min.z - 0.02, pay = 2.0, boy = Math.max(kutu.max.x - kutu.min.x, kutu.max.y - kutu.min.y) * 0.035;
+  const ciz1 = (a, kesik) => {
+    const mat = kesik ? new THREE.LineDashedMaterial({ color: 0x888888, dashSize: 0.4, gapSize: 0.25 }) : new THREE.LineBasicMaterial({ color: 0x666666 });
+    const [p1, p2, lp] = a.yon === 'x'
+      ? [[a.k, kutu.min.y - pay, z], [a.k, kutu.max.y + pay, z], [a.k, kutu.min.y - pay - boy * 0.7, z]]
+      : [[kutu.min.x - pay, a.k, z], [kutu.max.x + pay, a.k, z], [kutu.min.x - pay - boy * 0.7, a.k, z]];
+    const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...p1), new THREE.Vector3(...p2)]);
+    const l = new THREE.Line(g, mat); if (kesik) l.computeLineDistances(); aksGrup.add(l);
+    const s = etiketSprite(a.ad, boy); s.position.set(...lp); aksGrup.add(s);
+  };
+  (m.akslar || []).forEach(a => ciz1(a, false));
+  (m.yardimci_akslar || []).forEach(a => ciz1(a, true));
+  aksGrup.visible = $('aksGoster').checked;
+}
+
+function gorunurluk() {
+  const turAcik = new Set([...document.querySelectorAll('#turler input:checked')].map(i => i.dataset.tur));
+  const katAcik = new Set([...document.querySelectorAll('#katlar input:checked')].map(i => i.dataset.kat));
+  for (const m of elemanlar) m.visible = turAcik.has(m.userData.tur) && katAcik.has(m.userData.kat ?? '—');
+  // tür başına opaklık (0 = gizli, 100 = tam opak)
+  const opak = {};
+  document.querySelectorAll('#turler input[type=range]').forEach(i => { opak[i.dataset.op] = +i.value / 100; $('opd_' + i.dataset.op).textContent = '%' + i.value; });
+  for (const m of elemanlar) {
+    const o = opak[m.userData.tur] ?? 1, mat = m.material, saydam = o < 0.999;
+    if (o <= 0) m.visible = false;
+    if (mat.transparent !== saydam) { mat.transparent = saydam; mat.needsUpdate = true; }
+    mat.opacity = o; mat.depthWrite = !saydam; m.castShadow = o >= 0.5;
+  }
+  if (aksGrup) aksGrup.visible = $('aksGoster').checked;
+  for (const kp of KAPAKLAR) kp.visible = kesitAcik && turAcik.has(kp.userData.tur);
+  gunes.castShadow = $('golge').checked; zeminGolge.visible = $('golge').checked;
+  kesikKenarGuncelle();
+}
+$('aksGoster').onchange = gorunurluk; $('golge').onchange = gorunurluk;
+
+// ---------- kesit düzlemi (makas) ----------
+// eksen = düzlem normali; görünen taraf eksen·p <= v (ters: >= v). Doğrultu: X/Y/Z ya da tıklanan yüzeyin normali.
+let yuzeyEksen = null;
+const EKSEN = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
+function kesitEkseni() { const t = $('kesitTip').value; return t === 'yuzey' ? yuzeyEksen : EKSEN[t] || null; }
+function eksenAdi(ax) { for (const [k, v] of Object.entries(EKSEN)) if (Math.abs(ax.dot(v)) > 0.9999) return k; return null; }
+function koseler() { const k = []; for (const x of [kutu.min.x, kutu.max.x]) for (const y of [kutu.min.y, kutu.max.y]) for (const z of [kutu.min.z, kutu.max.z]) k.push(new THREE.Vector3(x, y, z)); return k; }
+function aralik(ax) { const d = koseler().map(p => p.dot(ax)); return [Math.min(...d) - 0.5, Math.max(...d) + 0.5]; }   // 50 cm pay: dış yüze tıklanınca düzlem yüzle çakışmasın (benekli kapak)
+function kesitAyarla() {
+  const ters = $('kesitTers').checked, ax = kutu ? kesitEkseni() : null;
+  kesitAcik = !!ax;
+  $('kesitKay').disabled = !kesitAcik; butonGuncelle();
+  cerceve.visible = tutamak.visible = kesitAcik; makasOk.visible = false;
+  if (!kesitAcik) {
+    duzlem.set(new THREE.Vector3(0, 0, -1), 1e6);   // hiçbir şeyi kesmeyen uzak düzlem (gölge dahil)
+    $('kesitDeger').textContent = '—'; $('kesitAks').textContent = ''; gorunurluk(); return;
+  }
+  const [a, b] = aralik(ax);
+  const v = a + (b - a) * $('kesitKay').value / KAY;
+  const n = ax.clone(); if (!ters) n.negate();
+  duzlem.normal.copy(n); duzlem.constant = ters ? -v : v;
+  // kapakları düzleme yerleştir (kesilen tarafa bakar)
+  for (const kp of KAPAKLAR) { duzlem.coplanarPoint(kp.position); kp.lookAt(kp.position.clone().sub(duzlem.normal)); }
+  // turuncu çerçeve: düzlem içinde iki dik doğrultu, modelin izdüşümü kadar
+  const u = new THREE.Vector3().crossVectors(ax, Math.abs(ax.z) < 0.9 ? EKSEN.z : EKSEN.x).normalize(), w = new THREE.Vector3().crossVectors(ax, u);
+  const ku = koseler().map(p => p.dot(u)), kw = koseler().map(p => p.dot(w)), pay = 0.6;
+  const u0 = Math.min(...ku) - pay, u1 = Math.max(...ku) + pay, w0 = Math.min(...kw) - pay, w1 = Math.max(...kw) + pay;
+  const P = (pu, pw) => ax.clone().multiplyScalar(v).addScaledVector(u, pu).addScaledVector(w, pw);
+  { const K = [P(u0, w0), P(u1, w0), P(u1, w1), P(u0, w1)], n = []; for (let i = 0; i < 4; i++) { const a = K[i], b = K[(i + 1) % 4]; n.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+    cerceve.geometry.dispose(); cerceve.geometry = new LineSegmentsGeometry().setPositions(n); }
+  if (makasNokta) duzlem.projectPoint(makasNokta, tutamak.position); else tutamak.position.copy(P(u0, w0));
+  makasOk.position.copy(tutamak.position); makasOk.setDirection(duzlem.normal); makasOk.visible = true;
+  gorunurluk();
+  const ad = eksenAdi(ax);
+  if (ad) {
+    $('kesitDeger').textContent = (ad === 'z' ? 'kot ' + kot(v) : ad.toUpperCase() + ' = ' + v.toFixed(2)) + ' m';
+    const aks = [...(model?.akslar || []), ...(model?.yardimci_akslar || [])].filter(x => x.yon === ad);
+    const yak = aks.sort((p, q) => Math.abs(p.k - v) - Math.abs(q.k - v))[0];
+    $('kesitAks').textContent = yak && Math.abs(yak.k - v) < 0.6 ? `(aks ${yak.ad} ${(v - yak.k >= 0 ? '+' : '−')}${Math.abs(cm(v - yak.k))} cm)` : '';
+  } else {
+    const egim = Math.round(Math.acos(Math.min(1, Math.abs(ax.z))) * 180 / Math.PI);
+    $('kesitDeger').textContent = `eğik düzlem (yataydan ${egim}°)`; $('kesitAks').textContent = '';
+  }
+}
+$('kesitTip').onchange = () => {
+  if ($('kesitTip').value === 'yuzey' && !yuzeyEksen) { makasModu(true); return; }
+  $('kesitKay').value = $('kesitTip').value === 'z' ? 0.6 * KAY : 0.5 * KAY; kesitAyarla();
+};
+$('kesitKay').oninput = kesitAyarla; $('kesitTers').onchange = kesitAyarla;
+
+// ✂ Makas düğmesi: modelde bir yüzeye tıkla -> düzlem o yüzeye oturur, doğrultu yüzeyin normali (eksene ~5° yakınsa eksene yapışır);
+// kameraya bakan taraf kesilir. Esc ile vazgeç.
+// Tek düğme: Kapalı -> (bas) gezdirme: düzlem önizlemesi imlecin altındaki yüzeyi izler -> (tıkla) kesik -> (bas / Esc) kapalı.
+let makasAcik = false;   // true = gezdirme (düzlem seçiliyor)
+function butonGuncelle() {
+  const b = $('makasBtn');
+  b.classList.toggle('aktif', makasAcik || kesitAcik);
+  b.textContent = makasAcik ? '✂ Yüzey seç…' : kesitAcik ? '✂ Makası kapat' : '✂ Makas';
+}
+function makasModu(ac) {
+  makasAcik = ac;
+  ciz.domElement.style.cursor = ac ? 'crosshair' : '';
+  $('makasIpucu').style.display = ac ? 'block' : 'none';
+  $('makasIpucu').textContent = '✂ İmleci gezdir, kesmek istediğin yüzeye tıkla · Esc: vazgeç';
+  if (!ac) onizleme.visible = false;
+  else { $('ipucu').style.display = 'none'; if (uzerinde && uzerinde !== sabit) vurgula(uzerinde, false); uzerinde = null; }
+  butonGuncelle();
+}
+function makasKapat() { $('kesitTip').value = ''; yuzeyEksen = null; makasNokta = null; $('makasIpucu').style.display = 'none'; kesitAyarla(); butonGuncelle(); }
+$('makasBtn').onclick = () => { if (makasAcik) makasModu(false); else if (kesitAcik) makasKapat(); else makasModu(true); };
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (makasAcik) makasModu(false); else if (kesitAcik) makasKapat(); }
+  if ((e.key === 't' || e.key === 'T') && kesitAcik && !makasAcik) { $('kesitTers').checked = !$('kesitTers').checked; kesitAyarla(); }
+});
+// yüzey normali: eksene ~5° yakınsa eksene yapışır, kameraya bakar (kamera tarafı kesilir)
+function makasNormal(hit) {
+  const nrm = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+  for (const v of Object.values(EKSEN)) if (Math.abs(nrm.dot(v)) > 0.996) nrm.copy(v).multiplyScalar(Math.sign(nrm.dot(v)));
+  if (nrm.dot(kamera.position.clone().sub(hit.point)) < 0) nrm.negate();
+  return nrm;
+}
+function duzlemMetni(nrm, p) {
+  const ad = eksenAdi(nrm);
+  if (ad === 'z') return 'yatay · kot ' + kot(p.z);
+  if (ad) return `düşey ${ad.toUpperCase()} = ${p[ad].toFixed(2)} m`;
+  return 'eğik düzlem';
+}
+// gezdirme önizlemesi: modelin merkezinden geçecek kadar büyük yarı saydam turuncu düzlem
+function onizle(ev) {
+  const hit = kutu ? bulIsabet(ev) : null;
+  if (!hit) { onizleme.visible = false; $('makasIpucu').textContent = '✂ İmleci gezdir, kesmek istediğin yüzeye tıkla · Esc: vazgeç'; return; }
+  const nrm = makasNormal(hit), H = ciz.domElement.clientHeight || 1;
+  const mpp = 2 * kamera.position.distanceTo(hit.point) * Math.tan(THREE.MathUtils.degToRad(kamera.fov / 2)) / H;   // piksel başına metre
+  onizleme.position.copy(hit.point).addScaledVector(nrm, 0.004);
+  onizleme.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), nrm);
+  onizleme.scale.set(30 * mpp, 30 * mpp, 1); onizleme.visible = true;
+  $('makasIpucu').textContent = '✂ ' + duzlemMetni(nrm, hit.point) + ' · tıkla: kes · Esc: vazgeç';
+}
+function makasUygula(hit) {
+  const nrm = makasNormal(hit);
+  const ad = eksenAdi(nrm);
+  let ax = nrm.clone(), ters = false;
+  if (ad) { ax = EKSEN[ad].clone(); ters = false; if (nrm[ad] < 0) ters = true; }
+  // eksen·p <= v görünür (ters değilse). Normal kameraya bakıyorsa görünmesi gereken taraf eksen·p <= v -> ax = nrm, ters yok.
+  // eksene yapışıp eksen nrm'nin tersiyse görünen taraf eksen·p >= v -> ters.
+  if (ad) $('kesitTip').value = ad; else { yuzeyEksen = ax; $('kesitTip').value = 'yuzey'; }
+  $('kesitTers').checked = ters;
+  makasNokta = hit.point.clone();
+  const [a, b] = aralik(ax), v = hit.point.clone().addScaledVector(nrm, 0.002).dot(ax);   // yüzün 2 mm dışı: henüz kesmez; ✂ işaretini içeri sürükleyerek kes
+  $('kesitKay').value = Math.round(Math.min(1, Math.max(0, (v - a) / (b - a))) * KAY);
+  makasModu(false); kesitAyarla();
+  $('makasIpucu').textContent = '✂ İşareti içeri sürükleyerek kes · T: öbür taraf · Esc: kapat'; $('makasIpucu').style.display = 'block';
+}
+
+// ---------- görünümler ----------
+function bak(g) {
+  if (!kutu) return;
+  const m = kutu.getCenter(new THREE.Vector3()), r = kutu.getSize(new THREE.Vector3()).length() * 0.75;
+  const d = { '3b': [-0.9, -1.4, 0.9], ust: [0, -0.001, 1], on: [0, -1, 0.12], yan: [1, 0, 0.12] }[g];
+  kamera.position.set(m.x + d[0] * r * 1.4, m.y + d[1] * r * 1.4, m.z + d[2] * r * 1.4);
+  kontrol.target.copy(m); kontrol.update();
+}
+document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => bak(b.dataset.g));
+
+// ---------- üstüne gelince / tıklayınca ----------
+const isin = new THREE.Raycaster(), fare = new THREE.Vector2();
+function bulIsabet(ev) {
+  const r = ciz.domElement.getBoundingClientRect();
+  fare.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  isin.setFromCamera(fare, kamera);
+  const hs = isin.intersectObjects(elemanlar.filter(m => m.visible && m.material.opacity > 0.05), false);
+  for (const h of hs) if (!kesitAcik || duzlem.distanceToPoint(h.point) >= -1e-4) return h;
+  return null;
+}
+const bul = ev => bulIsabet(ev)?.object || null;
+function vurgula(m, acik) { if (m) m.material.emissive?.setHex(acik ? 0x5a3a10 : 0x000000); }
+
+// ---------- makas düzlemini modelde sürükleme (tutamak ya da Shift+sürükle) ----------
+let suruk = null;
+const surukDuzlem = new THREE.Plane(), surukNokta = new THREE.Vector3();
+$('sahne').addEventListener('pointerdown', ev => {        // yakalama evresi: OrbitControls'tan önce
+  if (!kesitAcik || makasAcik || ev.button !== 0) return;
+  const r = ciz.domElement.getBoundingClientRect();
+  fare.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  isin.setFromCamera(fare, kamera);
+  if (!ev.shiftKey && !isin.intersectObject(tutamak, false).length) return;
+  const eksen = kesitEkseni(); if (!eksen) return;
+  // eksen doğrultusunu içeren, kameraya en çok bakan düzlem
+  const bakis = kamera.getWorldDirection(new THREE.Vector3()), nn = bakis.clone().addScaledVector(eksen, -bakis.dot(eksen));
+  if (nn.lengthSq() < 1e-6) return;                      // eksene tam bakılıyor: kaydırıcıyı kullan
+  surukDuzlem.setFromNormalAndCoplanarPoint(nn.normalize(), tutamak.position);
+  suruk = { eksen }; kontrol.enabled = false; ciz.domElement.setPointerCapture(ev.pointerId);
+  ev.stopPropagation();
+}, { capture: true });
+ciz.domElement.addEventListener('pointermove', ev => {
+  if (!suruk) return;
+  const r = ciz.domElement.getBoundingClientRect();
+  fare.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  isin.setFromCamera(fare, kamera);
+  if (!isin.ray.intersectPlane(surukDuzlem, surukNokta)) return;
+  const [a, b] = aralik(suruk.eksen);
+  $('kesitKay').value = Math.round(Math.min(1, Math.max(0, (surukNokta.dot(suruk.eksen) - a) / (b - a))) * KAY);
+  kesitAyarla();
+  if (makasNokta) {
+    const icerde = Math.round(-duzlem.distanceToPoint(makasNokta) * 100);   // tıklanan yüzden içeri (cm)
+    $('makasIpucu').textContent = `✂ ${$('kesitDeger').textContent} · tıklanan yüzden ${icerde >= 0 ? icerde + ' cm içeri' : -icerde + ' cm dışarı'}`;
+    $('makasIpucu').style.display = 'block';
+  }
+});
+addEventListener('pointerup', () => { if (suruk) { suruk = null; kontrol.enabled = true; ciz.domElement.style.cursor = ''; } });
+function bilgiHTML(e) {
+  const [et] = TURLER[e.tur] || DIGER;
+  const sat = [['Tür', et + (e.tip ? ' (' + e.tip + ')' : '')], ['Kesit', kesitMetni(e)], ['Kot', `alt ${kot(e.alt)} · üst ${kot(e.ust)}`], ['Kat', e.kat ?? '—']];
+  if (e.tur === 'doseme') sat.push(['Net alan', (alan(e.poligon) - (e.bosluklar || []).reduce((s, h) => s + alan(h), 0)).toFixed(2) + ' m²']);
+  if (e.acikliklar?.length) sat.push(['Boşluk', e.acikliklar.map(o => `${cm(o.s2 - o.s1)} cm (${kot(o.alt)}…${kot(o.ust)})`).join(', ')]);
+  if (e.aciklama) sat.push(['Not', e.aciklama]);
+  return { baslik: e.ad, sat };
+}
+ciz.domElement.addEventListener('pointermove', ev => {
+  const ip = $('ipucu');
+  // döndürme/kaydırma sırasında vurgulama yapma (imlecin altından geçen elemanlar yanıp sönüyordu)
+  if (makasAcik) { if (!ev.buttons) onizle(ev); return; }
+  if (kesitAcik && !ev.buttons && !suruk) { const r = ciz.domElement.getBoundingClientRect(); fare.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); isin.setFromCamera(fare, kamera); ciz.domElement.style.cursor = isin.intersectObject(tutamak, false).length ? 'grab' : ''; }
+  if (ev.buttons || suruk) { ip.style.display = 'none'; if (uzerinde && uzerinde !== sabit) vurgula(uzerinde, false); uzerinde = null; return; }
+  const m = bul(ev);
+  if (m !== uzerinde) { if (uzerinde !== sabit) vurgula(uzerinde, false); uzerinde = m; vurgula(m, true); }
+  if (!m) { ip.style.display = 'none'; return; }
+  const b = bilgiHTML(m.userData);
+  ip.innerHTML = `<b>${b.baslik}</b> · ${b.sat[0][1]}<br>${b.sat[1][1]} · ${b.sat[2][1]}`;
+  ip.style.display = 'block';
+  const x = Math.min(ev.clientX + 14, innerWidth - ip.offsetWidth - 6), y = Math.min(ev.clientY + 14, innerHeight - ip.offsetHeight - 6);
+  ip.style.left = x + 'px'; ip.style.top = y + 'px';
+});
+ciz.domElement.addEventListener('pointerleave', () => { $('ipucu').style.display = 'none'; });
+let basla = null;
+ciz.domElement.addEventListener('pointerdown', ev => basla = [ev.clientX, ev.clientY]);
+ciz.domElement.addEventListener('pointerup', ev => {
+  if (!basla || Math.hypot(ev.clientX - basla[0], ev.clientY - basla[1]) > 4) return;
+  if (makasAcik) { const hh = bulIsabet(ev); if (hh) makasUygula(hh); return; }
+  const m = bul(ev); vurgula(sabit, false); sabit = m; vurgula(m, true);
+  if (!m) { $('secili').innerHTML = '<span style="color:var(--soluk)">Üstüne gel: ad/kesit/kot · tıkla: sabitle</span>'; return; }
+  const b = bilgiHTML(m.userData);
+  $('secili').innerHTML = `<b style="color:var(--vurgu);font-size:14px">${b.baslik}</b><table>${b.sat.map(s => `<tr><td>${s[0]}</td><td>${s[1]}</td></tr>`).join('')}</table>`;
+});
+
+// ---------- dosya / sürükle-bırak ----------
+function dosyaOku(f) { const r = new FileReader(); r.onload = () => { try { yukle(JSON.parse(r.result)); } catch (e) { alert('JSON okunamadı: ' + e.message); } }; r.readAsText(f, 'utf-8'); }
+$('dosyaBtn').onclick = () => $('dosya').click();
+$('dosya').onchange = e => e.target.files[0] && dosyaOku(e.target.files[0]);
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); e.dataTransfer.files[0] && dosyaOku(e.dataTransfer.files[0]); });
+$('panelKapat').onclick = () => { $('panel').style.display = 'none'; $('gizle').style.display = 'block'; };
+$('gizle').onclick = () => { $('panel').style.display = ''; $('gizle').style.display = 'none'; };
+// tema seçimi: otomatik (işletim sistemi) / açık / koyu — tarayıcıda hatırlanır
+const TEMA = [['', '◐ Otomatik'], ['light', '☀ Açık'], ['dark', '☾ Koyu']];
+function temaUygula(t) { if (t) document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; $('temaBtn').textContent = TEMA.find(x => x[0] === t)[1]; }
+let tema = ''; try { tema = localStorage.getItem('ba_tema') || ''; } catch (e) {}
+temaUygula(TEMA.some(x => x[0] === tema) ? tema : '');
+$('temaBtn').onclick = () => {
+  const i = TEMA.findIndex(x => x[0] === (document.documentElement.dataset.theme || ''));
+  const t = TEMA[(i + 1) % TEMA.length][0]; temaUygula(t);
+  try { localStorage.setItem('ba_tema', t); } catch (e) {}
+};
+// telefonda panel başta kapalı (model tam ekran görünsün)
+if (innerWidth < 600) $('panelKapat').click();
+
+addEventListener('resize', () => { kamera.aspect = innerWidth / innerHeight; kamera.updateProjectionMatrix(); ciz.setSize(innerWidth, innerHeight); KENAR_MAT?.resolution.set(innerWidth, innerHeight); KESIK_MAT.resolution.set(innerWidth, innerHeight); CERCEVE_MAT.resolution.set(innerWidth, innerHeight); ONIZ_MAT.resolution.set(innerWidth, innerHeight); });
+(function dongu() {
+  requestAnimationFrame(dongu); kontrol.update();
+  // derinlik hassasiyeti: yakın/uzak düzlemi hedef uzaklığına göre ayarla (sabit 0,05/2000 titreme yapıyordu)
+  const d = kamera.position.distanceTo(kontrol.target), R = kutu ? kutu.getSize(new THREE.Vector3()).length() : 50;
+  const yakin = Math.max(0.05, d * 0.02), uzak = d + R * 3;
+  if (Math.abs(kamera.near - yakin) > yakin * 0.1 || Math.abs(kamera.far - uzak) > uzak * 0.1) { kamera.near = yakin; kamera.far = uzak; kamera.updateProjectionMatrix(); }
+  if (tutamak.visible) { const u = kamera.position.distanceTo(tutamak.position); tutamak.scale.setScalar(u * 0.022); makasOk.scale.setScalar(u * 0.05); }   // ekranda sabit boy
+  ciz.render(sahne, kamera);
+})();
+
+const gomulu = $('model-veri').textContent.trim();
+if (gomulu && !gomulu.startsWith('/*')) { try { yukle(JSON.parse(gomulu)); } catch (e) { console.error(e); $('bos').style.display = 'flex'; } }
+else $('bos').style.display = 'flex';
+window.__ba = { sahne, elemanlar: () => elemanlar.length };
+</script>
+</body>
+</html>
