@@ -12,14 +12,25 @@
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:var(--zemin);background-image:var(--gradyan);color:var(--yazi);font:13px/1.4 "Segoe UI",system-ui,sans-serif;overflow:hidden}
 #sahne{position:fixed;inset:0}
-#panel{position:fixed;top:10px;left:10px;width:270px;max-height:calc(100% - 20px);overflow:auto;background:var(--panel);border:1px solid var(--cizgi);border-radius:8px;padding:10px 12px;backdrop-filter:blur(4px)}
+#panel{position:fixed;top:10px;left:10px;width:310px;max-height:calc(100% - 20px);overflow:auto;background:var(--panel);border:1px solid var(--cizgi);border-radius:8px;padding:10px 12px;backdrop-filter:blur(4px)}
 #panel h1{font-size:15px;margin:0 0 2px}
 #panel .alt{color:var(--soluk);font-size:12px;margin-bottom:8px}
 #panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--soluk);margin:12px 0 4px;border-top:1px solid var(--cizgi);padding-top:8px}
 label.sat{display:flex;align-items:center;gap:6px;cursor:pointer;padding:1px 0}
 label.sat .say{margin-left:auto;color:var(--soluk);font-variant-numeric:tabular-nums}
-.turSat{display:grid;grid-template-columns:1fr 74px 34px;align-items:center;gap:6px}
-.turSat input[type=range]{width:74px;margin:0}
+.turSat{display:grid;grid-template-columns:minmax(0,1fr) 56px 48px 28px;align-items:center;gap:4px}
+.turSat label.sat{min-width:0;white-space:nowrap;overflow:hidden;gap:5px}
+.turSat label.sat .say{font-size:11px}
+.turSat input[type=range]{width:48px;margin:0}
+.turSat select{padding:1px 2px;font-size:11px;width:56px}
+input[type=color].renk{-webkit-appearance:none;appearance:none;width:16px;height:16px;padding:0;border:1px solid #0004;border-radius:3px;background:none;cursor:pointer}
+input[type=color].renk::-webkit-color-swatch-wrapper{padding:0}
+input[type=color].renk::-webkit-color-swatch{border:none;border-radius:2px}
+input[type=color].renk::-moz-color-swatch{border:none;border-radius:2px}
+.makasSat{display:flex;align-items:center;gap:4px;padding:2px 4px;border-radius:4px;cursor:pointer;border:1px solid transparent}
+.makasSat.secili{background:#e07a5f22;border-color:#e07a5f88}
+.makasSat span{flex:1;font-variant-numeric:tabular-nums}
+.makasSat button{padding:0 6px}
 .turSat .opDeg{color:var(--soluk);font-size:11px;text-align:right;font-variant-numeric:tabular-nums}
 .renk{width:12px;height:12px;border-radius:2px;border:1px solid #0003;flex:none}
 .dugmeler{display:flex;flex-wrap:wrap;gap:4px}
@@ -49,12 +60,12 @@ button.aktif{background:#e07a5f;border-color:#e07a5f;color:#fff}
   <div style="display:flex;align-items:start;gap:6px"><div style="flex:1"><h1 id="baslik">BA Model</h1><div class="alt" id="altbaslik"></div></div><button id="panelKapat" title="Paneli gizle">✕</button></div>
   <div class="dugmeler"><button data-g="3b">3B</button><button data-g="ust">Üst</button><button data-g="on">Ön</button><button data-g="yan">Yan</button><button id="dosyaBtn">Dosya seç</button><button id="makasBtn" title="Makas: imleci modelde gezdir, düzlem yüzeye oturur; tıkla kes. Yine bas: kapat">✂ Makas</button><button id="temaBtn" title="Arka plan: otomatik / açık / koyu">◐ Otomatik</button></div>
   <input type="file" id="dosya" accept=".json,application/json" hidden>
-  <h2>✂ Makas (kesit düzlemi)</h2>
-  <select id="kesitTip" hidden><option value="">Kapalı</option><option value="z">Yatay (kot)</option><option value="x">Düşey X</option><option value="y">Düşey Y</option><option value="yuzey">Yüzeyden (✂)</option></select>
-  <input type="checkbox" id="kesitTers" hidden><input type="range" id="kesitKay" min="0" max="100000" value="50000" hidden>
+  <h2>✂ Makas (kesit düzlemleri)</h2>
+  <div id="makasListe"></div>
   <div>Konum: <span id="kesitDeger">—</span> <span id="kesitAks" style="color:var(--soluk)"></span></div>
-  <div style="color:var(--soluk);font-size:11px">✂ Makas'a bas, imleci modelde gezdir: imlecin altındaki yüz küçük mavi kareyle gösterilir. Tıkla: o noktaya ✂ işareti konur. İşareti içeri sürükle: kes (Shift+sürükle de olur) · T: öbür taraf · Makas'a yine bas ya da Esc: kapat. Kesilen yüzler parlak renkli ve çapraz taralı.</div>
-  <h2>Eleman türleri <span style="text-transform:none;letter-spacing:0;float:right">opaklık</span></h2><div id="turler"></div>
+  <div style="color:var(--soluk);font-size:11px">✂ Makas'a bas, imleci modelde gezdir: imlecin altındaki yüz küçük mavi kareyle gösterilir. Tıkla: o noktaya ✂ işareti konur. İşareti içeri sürükle: kes (Shift+sürükle: seçili makas). Yeni makas için ✂ Makas'a yine bas (en çok 6); görünen bölge tüm makasların ortak tarafıdır. Listede ⇄: öbür taraf, ×: kaldır · T: seçili makası çevir · Esc: tümünü kaldır. Kesilen yüzler parlak renkli ve çapraz taralı.</div>
+  <h2>Eleman türleri <span style="text-transform:none;letter-spacing:0;float:right">doku · opaklık</span></h2><div id="turler"></div>
+  <div class="dugmeler" style="margin:4px 0"><button id="renkVars" title="Tüm türlerin renk ve dokusunu varsayılana döndür">Varsayılan renkler</button></div>
   <label class="sat"><input type="checkbox" id="aksGoster" checked> Akslar</label>
   <label class="sat"><input type="checkbox" id="golge" checked> Gölge</label>
   <h2>Katlar</h2><div id="katlar"></div>
@@ -94,6 +105,56 @@ function taramaDokusu(boyut) {
   const tekrar = boyut / 0.30; d.repeat.set(tekrar, tekrar); d.anisotropy = 8; return d;   // çizgi aralığı ~15 cm
 }
 const kesitRengi = (r, t) => new THREE.Color(KESIT_PARLAK[t] ?? new THREE.Color(r).offsetHSL(0, 0.5, 0.1).getHex());
+// ---------- malzeme dokuları (prosedürel, dış dosya yok) — gri tonlu, eleman rengiyle çarpılır ----------
+const DOKU_VARS = { kolon: 'beton', perde: 'beton', kiris: 'beton', doseme: 'beton', radye: 'beton', temel: 'beton', merdiven: 'beton', celik: 'celik' };
+const DOKU_ADLARI = [['', 'Yok'], ['beton', 'Beton'], ['celik', 'Çelik'], ['ahsap', 'Ahşap']];
+const DOKU_BOY = { beton: 1.2, celik: 0.6, ahsap: 1.0 };   // bir doku karesinin gerçek boyu (m); ExtrudeGeometry UV'si metre cinsinden
+function dokuUret(tip) {
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
+  let s = { beton: 11, celik: 23, ahsap: 37 }[tip]; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;   // tekrarlanabilir rastgele
+  const dokuz = f => { for (const dx of [-N, 0, N]) for (const dy of [-N, 0, N]) f(dx, dy); };   // kenardan taşanı karşıya sar (dikişsiz)
+  if (tip === 'beton') {
+    g.fillStyle = '#f4f4f3'; g.fillRect(0, 0, N, N);
+    for (let i = 0; i < 70; i++) {   // lekeli yüzey (kalıp izi / çimento tonu)
+      const x = rnd() * N, y = rnd() * N, r = 14 + rnd() * 50, a = 0.07 + rnd() * 0.12, kd = rnd() < 0.6 ? '90,90,90' : '255,255,255';
+      dokuz((dx, dy) => { const gr = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, r); gr.addColorStop(0, `rgba(${kd},${a})`); gr.addColorStop(1, `rgba(${kd},0)`); g.fillStyle = gr; g.fillRect(x + dx - r, y + dy - r, 2 * r, 2 * r); });
+    }
+    for (let i = 0; i < 900; i++) {   // agrega benekleri ve hava boşlukları
+      const x = rnd() * N, y = rnd() * N, r = rnd() < 0.85 ? 0.5 + rnd() * 1.1 : 1.5 + rnd() * 1.6;
+      g.fillStyle = r > 1.5 ? 'rgba(70,70,70,0.45)' : rnd() < 0.5 ? 'rgba(110,110,110,0.35)' : 'rgba(255,255,255,0.6)';
+      dokuz((dx, dy) => { g.beginPath(); g.arc(x + dx, y + dy, r, 0, 7); g.fill(); });
+    }
+  } else if (tip === 'celik') {   // fırçalanmış metal: yatay ince çizgiler
+    g.fillStyle = '#e9ebee'; g.fillRect(0, 0, N, N);
+    for (let i = 0; i < 520; i++) {
+      const y = rnd() * N, a = 0.08 + rnd() * 0.20; g.lineWidth = 0.5 + rnd() * 1.6;
+      g.strokeStyle = rnd() < 0.55 ? `rgba(80,86,95,${a})` : `rgba(255,255,255,${a * 1.6})`;
+      const x0 = rnd() * N, L = N * (0.3 + rnd() * 0.9);
+      dokuz((dx, dy) => { if (dy) return; g.beginPath(); g.moveTo(x0 + dx, y); g.lineTo(x0 + dx + L, y); g.stroke(); });
+    }
+    for (let i = 0; i < 5; i++) { const y = rnd() * N, h = 10 + rnd() * 30; g.fillStyle = `rgba(255,255,255,${0.05 + rnd() * 0.06})`; g.fillRect(0, y, N, h); if (y + h > N) g.fillRect(0, y - N, N, h); }
+  } else {   // ahşap: halka damarları + lif (her iki yönde periyodik -> dikişsiz)
+    const im = g.createImageData(N, N), lif = Array.from({ length: N }, () => rnd());
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const u = x / N, w = y / N, P2 = 2 * Math.PI;
+      const t = w * 7 + 0.20 * Math.sin(P2 * (u * 2 + w)) + 0.07 * Math.sin(P2 * (u * 5 + 3 * w) + 1.3);
+      const f = t - Math.floor(t), halka = Math.pow(f, 5) + 0.35 * Math.pow(1 - f, 12);
+      const v = 255 * (1 - 0.34 * halka - 0.10 * lif[y] - 0.05 * lif[(y + x * 3) % N]), i = 4 * (y * N + x);
+      im.data[i] = im.data[i + 1] = im.data[i + 2] = Math.max(0, v); im.data[i + 3] = 255;
+    }
+    g.putImageData(im, 0, 0);
+  }
+  const d = new THREE.CanvasTexture(c); d.wrapS = d.wrapT = THREE.RepeatWrapping; d.colorSpace = THREE.SRGBColorSpace; d.anisotropy = 8;
+  d.repeat.setScalar(1 / DOKU_BOY[tip]); return d;
+}
+const DOKULAR = {}; const doku = t => t ? (DOKULAR[t] ||= dokuUret(t)) : null;
+// kullanıcının renk / doku seçimi: tarayıcıda hatırlanır (localStorage; gizli pencerede yoksa sessizce varsayılan)
+let RENK_SEC = {}, DOKU_SEC = {};
+try { RENK_SEC = JSON.parse(localStorage.getItem('ba_renk') || '{}') || {}; DOKU_SEC = JSON.parse(localStorage.getItem('ba_doku') || '{}') || {}; } catch (e) { RENK_SEC = {}; DOKU_SEC = {}; }
+const turRengi = t => { try { if (RENK_SEC[t]) return new THREE.Color(RENK_SEC[t]).getHex(); } catch (e) {} return (TURLER[t] || DIGER)[1]; };
+const turDokusu = t => (t in DOKU_SEC ? DOKU_SEC[t] : DOKU_VARS[t]) || '';
+const hex6 = h => '#' + h.toString(16).padStart(6, '0');
+function secimKaydet() { try { localStorage.setItem('ba_renk', JSON.stringify(RENK_SEC)); localStorage.setItem('ba_doku', JSON.stringify(DOKU_SEC)); } catch (e) {} }
 const $ = id => document.getElementById(id);
 const kot = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(2);
 const cm = v => Math.round(v * 100);
@@ -121,8 +182,13 @@ const zeminGolge = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.Shado
 zeminGolge.receiveShadow = true; sahne.add(zeminGolge);
 
 let kok = null, model = null, kutu = null, elemanlar = [], aksGrup = null, sabit = null, uzerinde = null, kesitAcik = false, KENAR_MAT = null;
-const duzlem = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1e6);   // kapalıyken hiçbir şeyi kesmez
-const KAPAKLAR = [];                                                 // tür başına kesit kapağı (stencil)
+// ÇOKLU MAKAS: 6 sabit yuva düzlemi; boş yuva hiçbir şeyi kesmeyen uzak düzlemdir (dizi boyu sabit -> gölgelendirici yeniden derlenmez).
+// Görünen bölge = tüm düzlemlerin + tarafının kesişimi (three.js varsayılan kırpması).
+const MAKS = 6;
+const uzakYap = p => p.set(new THREE.Vector3(0, 0, -1), 1e6);
+const PLANLAR = Array.from({ length: MAKS }, () => uzakYap(new THREE.Plane()));
+let makaslar = [], aktifMakas = null;                                // makas: {slot, ad, ax, ters, v, nokta, tutamak, ok}
+const KAPAKLAR = [];                                                 // yuva × tür başına kesit kapağı (stencil)
 // makas tutamağı + çerçeve
 const TURUNCU = 0xe07a5f;
 const CERCEVE_MAT = new LineMaterial({ color: TURUNCU, linewidth: 3, depthTest: false, transparent: true });
@@ -136,7 +202,18 @@ const kesikKenar = new LineSegments2(new LineSegmentsGeometry(), KESIK_MAT);
 kesikKenar.renderOrder = 2000; kesikKenar.visible = false; kesikKenar.raycast = () => {}; kesikKenar.frustumCulled = false; sahne.add(kesikKenar);
 function kesikKenarGuncelle() {
   const n = [];
-  if (kesitAcik) {
+  // her makas düzlemi için düzlem ∩ eleman üçgenleri; parça öbür makasların kestiği bölgeye düşüyorsa kırpılır
+  const kirp = (p, q, slot) => {
+    for (const mk of makaslar) {
+      if (mk.slot === slot) continue;
+      const pl = PLANLAR[mk.slot], dp = pl.distanceToPoint(p), dq = pl.distanceToPoint(q);
+      if (dp < 0 && dq < 0) return null;
+      if (dp < 0) p = p.clone().lerp(q, dp / (dp - dq)); else if (dq < 0) q = q.clone().lerp(p, dq / (dq - dp));
+    }
+    return [p, q];
+  };
+  for (const mk of makaslar) {
+    const duzlem = PLANLAR[mk.slot];
     const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), ofs = duzlem.normal.clone().multiplyScalar(-0.004);
     const kes = (p, q, dp, dq) => p.clone().lerp(q, dp / (dp - dq)).add(ofs);
     for (const m of elemanlar) {
@@ -152,7 +229,9 @@ function kesikKenarGuncelle() {
         if ((da > 0) !== (db > 0)) P.push(kes(A, B, da, db));
         if ((db > 0) !== (dc > 0)) P.push(kes(B, C, db, dc));
         if ((dc > 0) !== (da > 0)) P.push(kes(C, A, dc, da));
-        if (P.length === 2) n.push(P[0].x, P[0].y, P[0].z, P[1].x, P[1].y, P[1].z);
+        if (P.length !== 2) continue;
+        const s = kirp(P[0], P[1], mk.slot);
+        if (s) n.push(s[0].x, s[0].y, s[0].z, s[1].x, s[1].y, s[1].z);
       }
     }
   }
@@ -160,20 +239,22 @@ function kesikKenarGuncelle() {
   if (n.length) kesikKenar.geometry.setPositions(n);
   kesikKenar.visible = n.length > 0;
 }
-const KAY = 100000;                                   // gizli kaydırıcı çözünürlüğü (15 m'de 0,15 mm)
-// makas işareti: seçilen noktada ✂ rozeti; sürüklenince düzlem normali boyunca kayar
-function makasDokusu() {
+// makas işareti: seçilen noktada ✂ rozeti (köşede makas numarası); sürüklenince düzlem normali boyunca kayar
+function makasDokusu(no) {
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
   g.fillStyle = '#e07a5f'; g.beginPath(); g.arc(64, 64, 60, 0, Math.PI * 2); g.fill();
   g.lineWidth = 6; g.strokeStyle = '#fff'; g.stroke();
-  g.fillStyle = '#fff'; g.font = 'bold 76px "Segoe UI Symbol", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✂', 64, 68);
+  g.fillStyle = '#fff'; g.font = 'bold 70px "Segoe UI Symbol", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✂', 58, 70);
+  if (no) { g.fillStyle = '#1d2430'; g.beginPath(); g.arc(100, 28, 24, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 34px "Segoe UI", sans-serif'; g.fillText(no, 100, 30); }
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-const tutamak = new THREE.Sprite(new THREE.SpriteMaterial({ map: makasDokusu(), depthTest: false, transparent: true }));
-tutamak.renderOrder = 92; tutamak.visible = false; sahne.add(tutamak);
-const makasOk = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(), 1, TURUNCU, 0.35, 0.22);
-makasOk.traverse(o => { if (o.material) { o.material.depthTest = false; o.material.transparent = true; } o.renderOrder = 91; }); makasOk.visible = false; sahne.add(makasOk);
-let makasNokta = null;                               // tıklanan nokta (işaret bu noktanın düzlemdeki izdüşümünde durur)
+function tutamakYap(no) {
+  const tutamak = new THREE.Sprite(new THREE.SpriteMaterial({ map: makasDokusu(no), depthTest: false, transparent: true }));
+  tutamak.renderOrder = 92; sahne.add(tutamak);
+  const ok = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(), 1, TURUNCU, 0.35, 0.22);
+  ok.traverse(o => { if (o.material) { o.material.depthTest = false; o.material.transparent = true; } o.renderOrder = 91; }); sahne.add(ok);
+  return { tutamak, ok };
+}
 
 const onizleme = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x00d5ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide, depthTest: false, depthWrite: false }));
 const ONIZ_MAT = new LineMaterial({ color: 0x0090b0, linewidth: 3, depthTest: false, transparent: true }); ONIZ_MAT.resolution.set(innerWidth, innerHeight);
@@ -186,9 +267,18 @@ function temizle() {
 }
 
 // stencil kesit kapağı malzemeleri (three.js webgl_clipping_stencil yöntemi)
-const STENCIL_TABAN = { depthWrite: false, depthTest: false, colorWrite: false, stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc, clippingPlanes: [duzlem] };
-const stArka = new THREE.MeshBasicMaterial({ ...STENCIL_TABAN, side: THREE.BackSide, stencilFail: THREE.IncrementWrapStencilOp, stencilZFail: THREE.IncrementWrapStencilOp, stencilZPass: THREE.IncrementWrapStencilOp });
-const stOn = new THREE.MeshBasicMaterial({ ...STENCIL_TABAN, side: THREE.FrontSide, stencilFail: THREE.DecrementWrapStencilOp, stencilZFail: THREE.DecrementWrapStencilOp, stencilZPass: THREE.DecrementWrapStencilOp });
+// çoklu düzlem: yuva i'nin stencil geçişi YALNIZ kendi düzlemiyle kırpılır; yuva i'nin kapağı öbür düzlemlerle kırpılır.
+// sıra (renderOrder): 1000 + 100·yuva + 3·tür  -> stencil, sonra kapak (kapak çizilince stencil temizlenir)
+const STENCIL_TABAN = { depthWrite: false, depthTest: false, colorWrite: false, stencilWrite: true, stencilFunc: THREE.AlwaysStencilFunc };
+const ST_ARKA = PLANLAR.map(p => new THREE.MeshBasicMaterial({ ...STENCIL_TABAN, clippingPlanes: [p], side: THREE.BackSide, stencilFail: THREE.IncrementWrapStencilOp, stencilZFail: THREE.IncrementWrapStencilOp, stencilZPass: THREE.IncrementWrapStencilOp }));
+const ST_ON = PLANLAR.map(p => new THREE.MeshBasicMaterial({ ...STENCIL_TABAN, clippingPlanes: [p], side: THREE.FrontSide, stencilFail: THREE.DecrementWrapStencilOp, stencilZFail: THREE.DecrementWrapStencilOp, stencilZPass: THREE.DecrementWrapStencilOp }));
+// makas eklenince her elemana o yuvanın iki stencil geçişini çocuk olarak ekle (görünürlüğü elemanla birlikte), silinince kaldır
+function stencilEkle(slot) {
+  for (const m of elemanlar) for (const sm of [ST_ARKA[slot], ST_ON[slot]]) {
+    const s = new THREE.Mesh(m.geometry, sm); s.renderOrder = 1000 + 100 * slot + 3 * (m.turSira || 0); s.raycast = () => {}; s.userData.stYuva = slot; m.add(s);
+  }
+}
+function stencilSil(slot) { for (const m of elemanlar) for (const s of m.children.filter(c => c.userData.stYuva === slot)) m.remove(s); }
 
 function sekil(pol, bosluk) {
   const s = new THREE.Shape(pol.map(p => new THREE.Vector2(p[0], p[1])));
@@ -238,14 +328,14 @@ function kesitMetni(e) {
 }
 
 function yukle(m) {
-  temizle(); model = m;
+  makaslariSifirla(); temizle(); model = m;
   if (m.sema && m.sema !== 'ba-model/1') console.warn('Beklenmeyen şema:', m.sema);
   kok = new THREE.Group(); sahne.add(kok);
   const sayac = {}, katSay = {};
   kutu = new THREE.Box3();
   const turSira = [...Object.keys(TURLER), '_'];
   // kalın siyah kenar çizgileri (WebGL'de normal çizgi hep 1 px; LineMaterial piksel cinsinden kalınlık verir)
-  const kenarMat = new LineMaterial({ color: 0x111111, linewidth: 1.6, transparent: true, opacity: 0.85, clippingPlanes: [duzlem] });
+  const kenarMat = new LineMaterial({ color: 0x111111, linewidth: 1.6, transparent: true, opacity: 0.85, clippingPlanes: PLANLAR });
   kenarMat.resolution.set(innerWidth, innerHeight); KENAR_MAT = kenarMat;
   // saydam döşemeler: kota göre SABİT çizim sırası (kamera dönerken sıralama değişip titremesin)
   const yatayKot = [...new Set((m.elemanlar || []).filter(e => e.tur === 'doseme' || e.tur === 'radye').map(e => +e.ust))].sort((a, b) => a - b);
@@ -255,9 +345,9 @@ function yukle(m) {
     const yatay = e.tur === 'doseme' || e.tur === 'radye';
     const k = ONCELIK[e.tur] || 6;
     const mat = new THREE.MeshLambertMaterial({
-      color: renk, side: THREE.DoubleSide, shadowSide: THREE.BackSide, transparent: yatay, opacity: yatay ? 0.55 : 1, depthWrite: !yatay,
+      color: turRengi(e.tur), map: doku(turDokusu(e.tur)), side: THREE.DoubleSide,   // seçili renk × malzeme dokusu shadowSide: THREE.BackSide, transparent: yatay, opacity: yatay ? 0.55 : 1, depthWrite: !yatay,
       polygonOffset: true, polygonOffsetFactor: k, polygonOffsetUnits: 2 * k,   // aynı düzlemdeki yüzler: öncelikli tür önde, kenar çizgileri üstte
-      clippingPlanes: [duzlem], clipShadows: true
+      clippingPlanes: PLANLAR, clipShadows: true
     });
     const ti = turSira.indexOf(TURLER[e.tur] ? e.tur : '_');
     for (const [pol, za, zu, bos] of parcalar(e)) {
@@ -268,8 +358,7 @@ function yukle(m) {
       mesh.castShadow = true; mesh.receiveShadow = true;
       const kg = new LineSegmentsGeometry().fromEdgesGeometry(new THREE.EdgesGeometry(g, 25));
       const kenar = new LineSegments2(kg, kenarMat); kenar.raycast = () => {}; mesh.add(kenar);
-      // kesit kapağı için stencil geçişleri (görünürlüğü elemanla birlikte açılır/kapanır)
-      for (const sm of [stArka, stOn]) { const s = new THREE.Mesh(g, sm); s.renderOrder = 1000 + 3 * ti; s.raycast = () => {}; mesh.add(s); }
+      mesh.turSira = ti;   // kesit kapağı stencil geçişleri makas eklenince eklenir (stencilEkle)
       kok.add(mesh); elemanlar.push(mesh);
       g.computeBoundingBox(); kutu.union(g.boundingBox);
     }
@@ -279,14 +368,16 @@ function yukle(m) {
   aksCiz(m);
   // kesit kapakları: tür başına düz PARLAK renkli düzlem; yalnız stencil'in sıfır olmadığı yerde (eleman içi) boyanır
   const boyut = kutu.getSize(new THREE.Vector3()).length() * 2;
-  for (const t of Object.keys(sayac)) {
+  const tarama = taramaDokusu(boyut);
+  for (let slot = 0; slot < MAKS; slot++) for (const t of Object.keys(sayac)) {
     const ti = turSira.indexOf(TURLER[t] ? t : '_');
     const kp = new THREE.Mesh(new THREE.PlaneGeometry(boyut, boyut), new THREE.MeshBasicMaterial({
-      color: kesitRengi((TURLER[t] || DIGER)[1], t), map: taramaDokusu(boyut), side: THREE.DoubleSide,
+      color: kesitRengi((TURLER[t] || DIGER)[1], t), map: tarama, side: THREE.DoubleSide,
+      clippingPlanes: PLANLAR.filter((_, j) => j !== slot),   // kapak yalnız öbür makasların bıraktığı bölgede
       stencilWrite: true, stencilRef: 0, stencilFunc: THREE.NotEqualStencilFunc,
       stencilFail: THREE.ReplaceStencilOp, stencilZFail: THREE.ReplaceStencilOp, stencilZPass: THREE.ReplaceStencilOp
     }));
-    kp.renderOrder = 1001 + 3 * ti; kp.userData.tur = t; kp.visible = false;
+    kp.renderOrder = 1001 + 100 * slot + 3 * ti; kp.userData.tur = t; kp.userData.yuva = slot; kp.visible = false;
     kp.onAfterRender = r => r.clearStencil();
     kok.add(kp); KAPAKLAR.push(kp);
   }
@@ -301,9 +392,10 @@ function yukle(m) {
   $('altbaslik').textContent = [m.sema, m.proje?.tarih, m.proje?.birim ? 'birim: ' + m.proje.birim : 'birim: m'].filter(Boolean).join(' · ');
   document.title = ($('baslik').textContent + ' — 3B').slice(0, 60);
   $('turler').innerHTML = Object.keys(sayac).map(t => {
-    const [et, r] = TURLER[t] || DIGER;
-    const op = OPAK_VARS[t] ?? 100;
-    return `<div class="turSat"><label class="sat"><input type="checkbox" data-tur="${t}" checked><span class="renk" style="background:#${r.toString(16).padStart(6, '0')}"></span>${et}<span class="say">${sayac[t]}</span></label>`
+    const [et] = TURLER[t] || DIGER;
+    const op = OPAK_VARS[t] ?? 100, d = turDokusu(t);
+    return `<div class="turSat"><label class="sat"><input type="checkbox" data-tur="${t}" checked><input type="color" class="renk" data-renk="${t}" value="${hex6(turRengi(t))}" title="${et} rengi: tıkla, seç">${et}<span class="say">${sayac[t]}</span></label>`
+      + `<select data-doku="${t}" title="${et} malzeme dokusu">${DOKU_ADLARI.map(([k, a]) => `<option value="${k}"${k === d ? ' selected' : ''}>${a}</option>`).join('')}</select>`
       + `<input type="range" data-op="${t}" min="0" max="100" step="5" value="${op}" title="${et} opaklığı"><span class="opDeg" id="opd_${t}">%${op}</span></div>`;
   }).join('');
   const katSira = (m.katlar || []).map(k => k.ad).filter(k => katSay[k]);
@@ -320,8 +412,24 @@ function yukle(m) {
   $('bos').style.display = 'none';
   document.querySelectorAll('#turler input[type=checkbox],#katlar input').forEach(i => i.onchange = gorunurluk);
   document.querySelectorAll('#turler input[type=range]').forEach(i => i.oninput = gorunurluk);
-  kesitAyarla(); bak('3b'); gorunurluk();
+  document.querySelectorAll('#turler input[type=color]').forEach(i => { i.oninput = () => { RENK_SEC[i.dataset.renk] = i.value; malzemeUygula(); }; i.onchange = secimKaydet; });
+  document.querySelectorAll('#turler select').forEach(s => s.onchange = () => { DOKU_SEC[s.dataset.doku] = s.value; malzemeUygula(); secimKaydet(); });
+  kesitGuncelle(); bak('3b'); gorunurluk();
 }
+// seçili renk ve dokuyu tür bazında tüm elemanlara uygula (doku renkle çarpılır)
+function malzemeUygula() {
+  for (const m of elemanlar) {
+    const t = m.userData.tur, mat = m.material, map = doku(turDokusu(t));
+    mat.color.setHex(turRengi(t));
+    if (mat.map !== map) { mat.map = map; mat.needsUpdate = true; }
+  }
+}
+$('renkVars').onclick = () => {
+  RENK_SEC = {}; DOKU_SEC = {}; secimKaydet();
+  document.querySelectorAll('#turler input[type=color]').forEach(i => i.value = hex6(turRengi(i.dataset.renk)));
+  document.querySelectorAll('#turler select').forEach(s => s.value = turDokusu(s.dataset.doku));
+  malzemeUygula();
+};
 const alan = p => { let a = 0; for (let i = 0; i < p.length; i++) { const [x1, y1] = p[i], [x2, y2] = p[(i + 1) % p.length]; a += x1 * y2 - x2 * y1; } return Math.abs(a) / 2; };
 
 function aksCiz(m) {
@@ -355,85 +463,103 @@ function gorunurluk() {
     mat.opacity = o; mat.depthWrite = !saydam; m.castShadow = o >= 0.5;
   }
   if (aksGrup) aksGrup.visible = $('aksGoster').checked;
-  for (const kp of KAPAKLAR) kp.visible = kesitAcik && turAcik.has(kp.userData.tur);
+  const yuvalar = new Set(makaslar.map(mk => mk.slot));
+  for (const kp of KAPAKLAR) kp.visible = yuvalar.has(kp.userData.yuva) && turAcik.has(kp.userData.tur);
   gunes.castShadow = $('golge').checked; zeminGolge.visible = $('golge').checked;
   kesikKenarGuncelle();
 }
 $('aksGoster').onchange = gorunurluk; $('golge').onchange = gorunurluk;
 
-// ---------- kesit düzlemi (makas) ----------
-// eksen = düzlem normali; görünen taraf eksen·p <= v (ters: >= v). Doğrultu: X/Y/Z ya da tıklanan yüzeyin normali.
-let yuzeyEksen = null;
+// ---------- kesit düzlemleri (çoklu makas) ----------
+// makas: ax = düzlem doğrultusu; görünen taraf ax·p <= v (ters: >= v). Doğrultu X/Y/Z ya da tıklanan yüzeyin normali.
 const EKSEN = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0), z: new THREE.Vector3(0, 0, 1) };
-function kesitEkseni() { const t = $('kesitTip').value; return t === 'yuzey' ? yuzeyEksen : EKSEN[t] || null; }
 function eksenAdi(ax) { for (const [k, v] of Object.entries(EKSEN)) if (Math.abs(ax.dot(v)) > 0.9999) return k; return null; }
 function koseler() { const k = []; for (const x of [kutu.min.x, kutu.max.x]) for (const y of [kutu.min.y, kutu.max.y]) for (const z of [kutu.min.z, kutu.max.z]) k.push(new THREE.Vector3(x, y, z)); return k; }
 function aralik(ax) { const d = koseler().map(p => p.dot(ax)); return [Math.min(...d) - 0.5, Math.max(...d) + 0.5]; }   // 50 cm pay: dış yüze tıklanınca düzlem yüzle çakışmasın (benekli kapak)
-function kesitAyarla() {
-  const ters = $('kesitTers').checked, ax = kutu ? kesitEkseni() : null;
-  kesitAcik = !!ax;
-  $('kesitKay').disabled = !kesitAcik; butonGuncelle();
-  cerceve.visible = tutamak.visible = kesitAcik; makasOk.visible = false;
-  if (!kesitAcik) {
-    duzlem.set(new THREE.Vector3(0, 0, -1), 1e6);   // hiçbir şeyi kesmeyen uzak düzlem (gölge dahil)
-    $('kesitDeger').textContent = '—'; $('kesitAks').textContent = ''; gorunurluk(); return;
-  }
-  const [a, b] = aralik(ax);
-  const v = a + (b - a) * $('kesitKay').value / KAY;
-  const n = ax.clone(); if (!ters) n.negate();
-  duzlem.normal.copy(n); duzlem.constant = ters ? -v : v;
-  // kapakları düzleme yerleştir (kesilen tarafa bakar)
-  for (const kp of KAPAKLAR) { duzlem.coplanarPoint(kp.position); kp.lookAt(kp.position.clone().sub(duzlem.normal)); }
-  // turuncu çerçeve: düzlem içinde iki dik doğrultu, modelin izdüşümü kadar
-  const u = new THREE.Vector3().crossVectors(ax, Math.abs(ax.z) < 0.9 ? EKSEN.z : EKSEN.x).normalize(), w = new THREE.Vector3().crossVectors(ax, u);
-  const ku = koseler().map(p => p.dot(u)), kw = koseler().map(p => p.dot(w)), pay = 0.6;
-  const u0 = Math.min(...ku) - pay, u1 = Math.max(...ku) + pay, w0 = Math.min(...kw) - pay, w1 = Math.max(...kw) + pay;
-  const P = (pu, pw) => ax.clone().multiplyScalar(v).addScaledVector(u, pu).addScaledVector(w, pw);
-  { const K = [P(u0, w0), P(u1, w0), P(u1, w1), P(u0, w1)], n = []; for (let i = 0; i < 4; i++) { const a = K[i], b = K[(i + 1) % 4]; n.push(a.x, a.y, a.z, b.x, b.y, b.z); }
-    cerceve.geometry.dispose(); cerceve.geometry = new LineSegmentsGeometry().setPositions(n); }
-  if (makasNokta) duzlem.projectPoint(makasNokta, tutamak.position); else tutamak.position.copy(P(u0, w0));
-  makasOk.position.copy(tutamak.position); makasOk.setDirection(duzlem.normal); makasOk.visible = true;
-  gorunurluk();
-  const ad = eksenAdi(ax);
-  if (ad) {
-    $('kesitDeger').textContent = (ad === 'z' ? 'kot ' + kot(v) : ad.toUpperCase() + ' = ' + v.toFixed(2)) + ' m';
-    const aks = [...(model?.akslar || []), ...(model?.yardimci_akslar || [])].filter(x => x.yon === ad);
-    const yak = aks.sort((p, q) => Math.abs(p.k - v) - Math.abs(q.k - v))[0];
-    $('kesitAks').textContent = yak && Math.abs(yak.k - v) < 0.6 ? `(aks ${yak.ad} ${(v - yak.k >= 0 ? '+' : '−')}${Math.abs(cm(v - yak.k))} cm)` : '';
-  } else {
-    const egim = Math.round(Math.acos(Math.min(1, Math.abs(ax.z))) * 180 / Math.PI);
-    $('kesitDeger').textContent = `eğik düzlem (yataydan ${egim}°)`; $('kesitAks').textContent = '';
-  }
+// bir makasın düzlemini, kapaklarını, ✂ işaretini ve okunu yerleştir
+function makasYerlestir(mk) {
+  const [a, b] = aralik(mk.ax); mk.v = Math.min(b, Math.max(a, mk.v));
+  const duzlem = PLANLAR[mk.slot], n = mk.ax.clone(); if (!mk.ters) n.negate();
+  duzlem.normal.copy(n); duzlem.constant = mk.ters ? -mk.v : mk.v;
+  for (const kp of KAPAKLAR) if (kp.userData.yuva === mk.slot) { duzlem.coplanarPoint(kp.position); kp.lookAt(kp.position.clone().sub(duzlem.normal)); }
+  duzlem.projectPoint(mk.nokta, mk.tutamak.position);
+  mk.ok.position.copy(mk.tutamak.position); mk.ok.setDirection(duzlem.normal);
 }
-$('kesitTip').onchange = () => {
-  if ($('kesitTip').value === 'yuzey' && !yuzeyEksen) { makasModu(true); return; }
-  $('kesitKay').value = $('kesitTip').value === 'z' ? 0.6 * KAY : 0.5 * KAY; kesitAyarla();
+function konum(mk) {
+  const ad = eksenAdi(mk.ax), v = mk.v;
+  if (!ad) return { deger: `eğik (yataydan ${Math.round(Math.acos(Math.min(1, Math.abs(mk.ax.z))) * 180 / Math.PI)}°)`, aks: '' };
+  const aks = [...(model?.akslar || []), ...(model?.yardimci_akslar || [])].filter(x => x.yon === ad);
+  const yak = aks.sort((p, q) => Math.abs(p.k - v) - Math.abs(q.k - v))[0];
+  return { deger: (ad === 'z' ? 'kot ' + kot(v) : ad.toUpperCase() + ' = ' + v.toFixed(2)) + ' m',
+    aks: yak && Math.abs(yak.k - v) < 0.6 ? `(aks ${yak.ad} ${(v - yak.k >= 0 ? '+' : '−')}${Math.abs(cm(v - yak.k))} cm)` : '' };
+}
+function listeCiz() {
+  $('makasListe').innerHTML = makaslar.map(mk => `<div class="makasSat${mk === aktifMakas ? ' secili' : ''}" data-yuva="${mk.slot}" title="Seç (T ve Shift+sürükle bu makasa uygulanır)"><span><b>${mk.ad}</b> · ${konum(mk).deger}</span>`
+    + `<button data-ters="1" title="Öbür tarafı göster">⇄ Ters</button><button data-sil="1" title="Bu makası kaldır">×</button></div>`).join('')
+    + (makaslar.length > 1 ? '<button id="makasHepsi" style="margin-top:2px">Tümünü kaldır</button>' : '');
+}
+// tüm makasları yerleştir; çerçeve yalnız seçili makasta; panel ve kesik kenarı güncelle
+function kesitGuncelle() {
+  kesitAcik = makaslar.length > 0 && !!kutu;
+  if (aktifMakas && !makaslar.includes(aktifMakas)) aktifMakas = makaslar[makaslar.length - 1] || null;
+  for (const mk of makaslar) makasYerlestir(mk);
+  const mk = aktifMakas;
+  cerceve.visible = !!mk;
+  if (mk) {   // turuncu çerçeve: düzlem içinde iki dik doğrultu, modelin izdüşümü kadar
+    const ax = mk.ax, u = new THREE.Vector3().crossVectors(ax, Math.abs(ax.z) < 0.9 ? EKSEN.z : EKSEN.x).normalize(), w = new THREE.Vector3().crossVectors(ax, u);
+    const ku = koseler().map(p => p.dot(u)), kw = koseler().map(p => p.dot(w)), pay = 0.6;
+    const u0 = Math.min(...ku) - pay, u1 = Math.max(...ku) + pay, w0 = Math.min(...kw) - pay, w1 = Math.max(...kw) + pay;
+    const P = (pu, pw) => ax.clone().multiplyScalar(mk.v).addScaledVector(u, pu).addScaledVector(w, pw);
+    const K = [P(u0, w0), P(u1, w0), P(u1, w1), P(u0, w1)], n = []; for (let i = 0; i < 4; i++) { const a = K[i], b = K[(i + 1) % 4]; n.push(a.x, a.y, a.z, b.x, b.y, b.z); }
+    cerceve.geometry.dispose(); cerceve.geometry = new LineSegmentsGeometry().setPositions(n);
+    const k = konum(mk); $('kesitDeger').textContent = mk.ad + ': ' + k.deger; $('kesitAks').textContent = k.aks;
+  } else { $('kesitDeger').textContent = '—'; $('kesitAks').textContent = ''; }
+  listeCiz(); butonGuncelle(); gorunurluk();
+}
+function makasSil(mk) {
+  stencilSil(mk.slot); uzakYap(PLANLAR[mk.slot]);
+  sahne.remove(mk.tutamak, mk.ok); mk.tutamak.material.map.dispose(); mk.tutamak.material.dispose();
+  makaslar = makaslar.filter(x => x !== mk);
+  if (!makaslar.length) $('makasIpucu').style.display = 'none';
+  kesitGuncelle();
+}
+function tumunuKaldir() { for (const mk of [...makaslar]) makasSil(mk); }
+function makaslariSifirla() {   // model değişince (elemanlar ve stencil çocukları temizle() ile gider)
+  for (const mk of makaslar) { sahne.remove(mk.tutamak, mk.ok); mk.tutamak.material.map.dispose(); mk.tutamak.material.dispose(); }
+  makaslar = []; aktifMakas = null; PLANLAR.forEach(uzakYap); kesitAcik = false; cerceve.visible = false;
+}
+$('makasListe').onclick = ev => {
+  const b = ev.target.closest('button'), s = ev.target.closest('[data-yuva]');
+  if (b?.id === 'makasHepsi') { tumunuKaldir(); return; }
+  const mk = s && makaslar.find(x => x.slot === +s.dataset.yuva); if (!mk) return;
+  if (b?.dataset.sil) { makasSil(mk); return; }
+  aktifMakas = mk; if (b?.dataset.ters) mk.ters = !mk.ters;
+  kesitGuncelle();
 };
-$('kesitKay').oninput = kesitAyarla; $('kesitTers').onchange = kesitAyarla;
 
-// ✂ Makas düğmesi: modelde bir yüzeye tıkla -> düzlem o yüzeye oturur, doğrultu yüzeyin normali (eksene ~5° yakınsa eksene yapışır);
-// kameraya bakan taraf kesilir. Esc ile vazgeç.
-// Tek düğme: Kapalı -> (bas) gezdirme: düzlem önizlemesi imlecin altındaki yüzeyi izler -> (tıkla) kesik -> (bas / Esc) kapalı.
+// ✂ Makas düğmesi: modelde bir yüzeye tıkla -> yeni düzlem o yüzeye oturur, doğrultu yüzeyin normali (eksene ~5° yakınsa eksene yapışır);
+// kameraya bakan taraf kesilir. Her basış yeni makas ekler (en çok 6). Esc: seçimden vazgeç / tümünü kaldır.
 let makasAcik = false;   // true = gezdirme (düzlem seçiliyor)
 function butonGuncelle() {
-  const b = $('makasBtn');
+  const b = $('makasBtn'), dolu = makaslar.length >= MAKS;
   b.classList.toggle('aktif', makasAcik || kesitAcik);
-  b.textContent = makasAcik ? '✂ Yüzey seç…' : kesitAcik ? '✂ Makası kapat' : '✂ Makas';
+  b.textContent = makasAcik ? '✂ Yüzey seç…' : dolu ? '✂ En çok 6' : kesitAcik ? '✂ Makas ekle' : '✂ Makas';
+  b.disabled = dolu && !makasAcik;
 }
 function makasModu(ac) {
-  makasAcik = ac;
-  ciz.domElement.style.cursor = ac ? 'crosshair' : '';
-  $('makasIpucu').style.display = ac ? 'block' : 'none';
-  $('makasIpucu').textContent = '✂ İmleci gezdir, kesmek istediğin yüzeye tıkla · Esc: vazgeç';
-  if (!ac) onizleme.visible = false;
+  makasAcik = ac && makaslar.length < MAKS;
+  ciz.domElement.style.cursor = makasAcik ? 'crosshair' : '';
+  $('makasIpucu').style.display = makasAcik ? 'block' : 'none';
+  $('makasIpucu').textContent = `✂ İmleci gezdir, kesmek istediğin yüzeye tıkla (makas ${makaslar.length + 1}) · Esc: vazgeç`;
+  if (!makasAcik) onizleme.visible = false;
   else { $('ipucu').style.display = 'none'; if (uzerinde && uzerinde !== sabit) vurgula(uzerinde, false); uzerinde = null; }
   butonGuncelle();
 }
-function makasKapat() { $('kesitTip').value = ''; yuzeyEksen = null; makasNokta = null; $('makasIpucu').style.display = 'none'; kesitAyarla(); butonGuncelle(); }
-$('makasBtn').onclick = () => { if (makasAcik) makasModu(false); else if (kesitAcik) makasKapat(); else makasModu(true); };
+$('makasBtn').onclick = () => { if (makasAcik) makasModu(false); else makasModu(true); };
 addEventListener('keydown', e => {
-  if (e.key === 'Escape') { if (makasAcik) makasModu(false); else if (kesitAcik) makasKapat(); }
-  if ((e.key === 't' || e.key === 'T') && kesitAcik && !makasAcik) { $('kesitTers').checked = !$('kesitTers').checked; kesitAyarla(); }
+  if (e.target.closest?.('input,select,textarea')) return;
+  if (e.key === 'Escape') { if (makasAcik) makasModu(false); else if (kesitAcik) tumunuKaldir(); }
+  if ((e.key === 't' || e.key === 'T') && aktifMakas && !makasAcik) { aktifMakas.ters = !aktifMakas.ters; kesitGuncelle(); }
 });
 // yüzey normali: eksene ~5° yakınsa eksene yapışır, kameraya bakar (kamera tarafı kesilir)
 function makasNormal(hit) {
@@ -448,10 +574,10 @@ function duzlemMetni(nrm, p) {
   if (ad) return `düşey ${ad.toUpperCase()} = ${p[ad].toFixed(2)} m`;
   return 'eğik düzlem';
 }
-// gezdirme önizlemesi: modelin merkezinden geçecek kadar büyük yarı saydam turuncu düzlem
+// gezdirme önizlemesi: imlecin altındaki yüzde ekranda 30 px'lik camgöbeği kare
 function onizle(ev) {
   const hit = kutu ? bulIsabet(ev) : null;
-  if (!hit) { onizleme.visible = false; $('makasIpucu').textContent = '✂ İmleci gezdir, kesmek istediğin yüzeye tıkla · Esc: vazgeç'; return; }
+  if (!hit) { onizleme.visible = false; $('makasIpucu').textContent = `✂ İmleci gezdir, kesmek istediğin yüzeye tıkla (makas ${makaslar.length + 1}) · Esc: vazgeç`; return; }
   const nrm = makasNormal(hit), H = ciz.domElement.clientHeight || 1;
   const mpp = 2 * kamera.position.distanceTo(hit.point) * Math.tan(THREE.MathUtils.degToRad(kamera.fov / 2)) / H;   // piksel başına metre
   onizleme.position.copy(hit.point).addScaledVector(nrm, 0.004);
@@ -460,19 +586,17 @@ function onizle(ev) {
   $('makasIpucu').textContent = '✂ ' + duzlemMetni(nrm, hit.point) + ' · tıkla: kes · Esc: vazgeç';
 }
 function makasUygula(hit) {
-  const nrm = makasNormal(hit);
-  const ad = eksenAdi(nrm);
-  let ax = nrm.clone(), ters = false;
-  if (ad) { ax = EKSEN[ad].clone(); ters = false; if (nrm[ad] < 0) ters = true; }
-  // eksen·p <= v görünür (ters değilse). Normal kameraya bakıyorsa görünmesi gereken taraf eksen·p <= v -> ax = nrm, ters yok.
-  // eksene yapışıp eksen nrm'nin tersiyse görünen taraf eksen·p >= v -> ters.
-  if (ad) $('kesitTip').value = ad; else { yuzeyEksen = ax; $('kesitTip').value = 'yuzey'; }
-  $('kesitTers').checked = ters;
-  makasNokta = hit.point.clone();
-  const [a, b] = aralik(ax), v = hit.point.clone().addScaledVector(nrm, 0.002).dot(ax);   // yüzün 2 mm dışı: henüz kesmez; ✂ işaretini içeri sürükleyerek kes
-  $('kesitKay').value = Math.round(Math.min(1, Math.max(0, (v - a) / (b - a))) * KAY);
-  makasModu(false); kesitAyarla();
-  $('makasIpucu').textContent = '✂ İşareti içeri sürükleyerek kes · T: öbür taraf · Esc: kapat'; $('makasIpucu').style.display = 'block';
+  if (makaslar.length >= MAKS) { makasModu(false); return; }
+  const slot = [...Array(MAKS).keys()].find(i => !makaslar.some(mk => mk.slot === i));
+  const nrm = makasNormal(hit), ad = eksenAdi(nrm);
+  // eksene yapıştıysa ax = eksen; eksen normalin tersiyse görünen taraf ax·p >= v -> ters. Eğikse ax = normal (kameraya bakar), ters yok.
+  const ax = ad ? EKSEN[ad].clone() : nrm.clone(), ters = ad ? nrm[ad] < 0 : false;
+  const v = hit.point.clone().addScaledVector(nrm, 0.002).dot(ax);   // yüzün 2 mm dışı: henüz kesmez; ✂ işaretini içeri sürükleyerek kes
+  const mk = { slot, ad: 'Makas ' + (slot + 1), ax, ters, v, nokta: hit.point.clone(), ...tutamakYap(slot + 1) };
+  makaslar.push(mk); makaslar.sort((p, q) => p.slot - q.slot); aktifMakas = mk;
+  stencilEkle(slot);
+  makasModu(false); kesitGuncelle();
+  $('makasIpucu').textContent = `✂ ${mk.ad}: işareti içeri sürükleyerek kes · ⇄ / T: öbür taraf`; $('makasIpucu').style.display = 'block';
 }
 
 // ---------- görünümler ----------
@@ -492,7 +616,7 @@ function bulIsabet(ev) {
   fare.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   isin.setFromCamera(fare, kamera);
   const hs = isin.intersectObjects(elemanlar.filter(m => m.visible && m.material.opacity > 0.05), false);
-  for (const h of hs) if (!kesitAcik || duzlem.distanceToPoint(h.point) >= -1e-4) return h;
+  for (const h of hs) if (PLANLAR.every(p => p.distanceToPoint(h.point) >= -1e-4)) return h;   // makasların kestiği bölgedekini atla
   return null;
 }
 const bul = ev => bulIsabet(ev)?.object || null;
@@ -501,18 +625,21 @@ function vurgula(m, acik) { if (m) m.material.emissive?.setHex(acik ? 0x5a3a10 :
 // ---------- makas düzlemini modelde sürükleme (tutamak ya da Shift+sürükle) ----------
 let suruk = null;
 const surukDuzlem = new THREE.Plane(), surukNokta = new THREE.Vector3();
+// imleç altındaki ✂ işareti (birden çok makas: en öndeki)
+function tutamakBul() { const h = isin.intersectObjects(makaslar.map(mk => mk.tutamak), false)[0]; return h ? makaslar.find(mk => mk.tutamak === h.object) : null; }
 $('sahne').addEventListener('pointerdown', ev => {        // yakalama evresi: OrbitControls'tan önce
   if (!kesitAcik || makasAcik || ev.button !== 0) return;
   const r = ciz.domElement.getBoundingClientRect();
   fare.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   isin.setFromCamera(fare, kamera);
-  if (!ev.shiftKey && !isin.intersectObject(tutamak, false).length) return;
-  const eksen = kesitEkseni(); if (!eksen) return;
+  const mk = tutamakBul() || (ev.shiftKey ? aktifMakas : null); if (!mk) return;
+  const eksen = mk.ax;
   // eksen doğrultusunu içeren, kameraya en çok bakan düzlem
   const bakis = kamera.getWorldDirection(new THREE.Vector3()), nn = bakis.clone().addScaledVector(eksen, -bakis.dot(eksen));
-  if (nn.lengthSq() < 1e-6) return;                      // eksene tam bakılıyor: kaydırıcıyı kullan
-  surukDuzlem.setFromNormalAndCoplanarPoint(nn.normalize(), tutamak.position);
-  suruk = { eksen }; kontrol.enabled = false; ciz.domElement.setPointerCapture(ev.pointerId);
+  if (nn.lengthSq() < 1e-6) return;                      // eksene tam bakılıyor: görünümü biraz çevir
+  surukDuzlem.setFromNormalAndCoplanarPoint(nn.normalize(), mk.tutamak.position);
+  if (aktifMakas !== mk) { aktifMakas = mk; kesitGuncelle(); }
+  suruk = { mk, eksen }; kontrol.enabled = false; ciz.domElement.setPointerCapture(ev.pointerId);
   ev.stopPropagation();
 }, { capture: true });
 ciz.domElement.addEventListener('pointermove', ev => {
@@ -521,14 +648,11 @@ ciz.domElement.addEventListener('pointermove', ev => {
   fare.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   isin.setFromCamera(fare, kamera);
   if (!isin.ray.intersectPlane(surukDuzlem, surukNokta)) return;
-  const [a, b] = aralik(suruk.eksen);
-  $('kesitKay').value = Math.round(Math.min(1, Math.max(0, (surukNokta.dot(suruk.eksen) - a) / (b - a))) * KAY);
-  kesitAyarla();
-  if (makasNokta) {
-    const icerde = Math.round(-duzlem.distanceToPoint(makasNokta) * 100);   // tıklanan yüzden içeri (cm)
-    $('makasIpucu').textContent = `✂ ${$('kesitDeger').textContent} · tıklanan yüzden ${icerde >= 0 ? icerde + ' cm içeri' : -icerde + ' cm dışarı'}`;
-    $('makasIpucu').style.display = 'block';
-  }
+  const mk = suruk.mk; mk.v = surukNokta.dot(suruk.eksen);   // aralık sınırı makasYerlestir'de
+  kesitGuncelle();
+  const icerde = Math.round(-PLANLAR[mk.slot].distanceToPoint(mk.nokta) * 100);   // tıklanan yüzden içeri (cm)
+  $('makasIpucu').textContent = `✂ ${mk.ad}: ${konum(mk).deger} · tıklanan yüzden ${icerde >= 0 ? icerde + ' cm içeri' : -icerde + ' cm dışarı'}`;
+  $('makasIpucu').style.display = 'block';
 });
 addEventListener('pointerup', () => { if (suruk) { suruk = null; kontrol.enabled = true; ciz.domElement.style.cursor = ''; } });
 function bilgiHTML(e) {
@@ -543,7 +667,7 @@ ciz.domElement.addEventListener('pointermove', ev => {
   const ip = $('ipucu');
   // döndürme/kaydırma sırasında vurgulama yapma (imlecin altından geçen elemanlar yanıp sönüyordu)
   if (makasAcik) { if (!ev.buttons) onizle(ev); return; }
-  if (kesitAcik && !ev.buttons && !suruk) { const r = ciz.domElement.getBoundingClientRect(); fare.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); isin.setFromCamera(fare, kamera); ciz.domElement.style.cursor = isin.intersectObject(tutamak, false).length ? 'grab' : ''; }
+  if (kesitAcik && !ev.buttons && !suruk) { const r = ciz.domElement.getBoundingClientRect(); fare.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1); isin.setFromCamera(fare, kamera); ciz.domElement.style.cursor = tutamakBul() ? 'grab' : ''; }
   if (ev.buttons || suruk) { ip.style.display = 'none'; if (uzerinde && uzerinde !== sabit) vurgula(uzerinde, false); uzerinde = null; return; }
   const m = bul(ev);
   if (m !== uzerinde) { if (uzerinde !== sabit) vurgula(uzerinde, false); uzerinde = m; vurgula(m, true); }
@@ -594,14 +718,14 @@ addEventListener('resize', () => { kamera.aspect = innerWidth / innerHeight; kam
   const d = kamera.position.distanceTo(kontrol.target), R = kutu ? kutu.getSize(new THREE.Vector3()).length() : 50;
   const yakin = Math.max(0.05, d * 0.02), uzak = d + R * 3;
   if (Math.abs(kamera.near - yakin) > yakin * 0.1 || Math.abs(kamera.far - uzak) > uzak * 0.1) { kamera.near = yakin; kamera.far = uzak; kamera.updateProjectionMatrix(); }
-  if (tutamak.visible) { const u = kamera.position.distanceTo(tutamak.position); tutamak.scale.setScalar(u * 0.022); makasOk.scale.setScalar(u * 0.05); }   // ekranda sabit boy
+  for (const mk of makaslar) { const u = kamera.position.distanceTo(mk.tutamak.position); mk.tutamak.scale.setScalar(u * 0.022); mk.ok.scale.setScalar(u * 0.05); }   // ekranda sabit boy
   ciz.render(sahne, kamera);
 })();
 
 const gomulu = $('model-veri').textContent.trim();
 if (gomulu && !gomulu.startsWith('/*')) { try { yukle(JSON.parse(gomulu)); } catch (e) { console.error(e); $('bos').style.display = 'flex'; } }
 else $('bos').style.display = 'flex';
-window.__ba = { sahne, elemanlar: () => elemanlar.length };
+window.__ba = { sahne, elemanlar: () => elemanlar.length, makaslar: () => makaslar };
 </script>
 </body>
 </html>
